@@ -3,11 +3,12 @@ spring:
 #    import: optional:file:.env
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-#    url: jdbc:mysql://192.168.0.192:3306/xe
-    url: ${secrets.DB_URL}
+    url: jdbc:mysql://192.168.0.192:3306/xe
     username: scott
-    password: ${secrets.DB_PW}
-#    password: TigerTiger1$
+    password: TigerTiger1$
+#    url: ${secrets.DB_URL}
+#    username: ${secrets.DB_USER}
+#    password: ${secrets.DB_PW}
   jpa:
     hibernate:
       ddl-auto: update
