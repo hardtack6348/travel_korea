@@ -13,7 +13,8 @@ public class UserService {
     @Autowired
     private UserRepository repo;
 
-    public UserRequest findUserInfo(Long id) {
+    public UserEntity findUserInfo(Long id) {
         UserEntity user = new UserEntity();
+        return user;
     }
 }

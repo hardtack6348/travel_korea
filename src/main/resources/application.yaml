@@ -1,11 +1,14 @@
 spring:
-  config:
-    import: optional:file:.env
-  datasourse:
+#  config:
+#    import: optional:file:.env
+  datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${secrets.DB_URL}
-    username: ${secrets.DB_USER}
-    password: ${secrets.DB_PW}
+    url: jdbc:mysql://192.168.0.192:3306/xe
+    username: scott
+    password: TigerTiger1$
+#    url: ${secrets.DB_URL}
+#    username: ${secrets.DB_USER}
+#    password: ${secrets.DB_PW}
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,6 +16,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+    database-platform: org.hibernate.dialect.MySQLDialect
   application:
     name: travel_korea
 server:
