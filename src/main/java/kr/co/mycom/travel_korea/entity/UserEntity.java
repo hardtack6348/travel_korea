@@ -28,6 +28,8 @@ public class UserEntity {
     private String gender;
     @Column(name = "GRADE")
     private String grade;
+    @Column(name = "CREATED_AT")
+    private String created_at;
 
 
 }
