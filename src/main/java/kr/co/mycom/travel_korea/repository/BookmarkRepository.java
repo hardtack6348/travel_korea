@@ -1,4 +1,11 @@
 package kr.co.mycom.travel_korea.repository;
 
-public interface BookmarkRepository {
+import kr.co.mycom.travel_korea.entity.BookmarkEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.stereotype.Repository;
+
+@EnableJpaRepositories
+@Repository
+public interface BookmarkRepository extends JpaRepository<BookmarkEntity, Long> {
 }

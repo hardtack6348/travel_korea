@@ -5,18 +5,17 @@ import kr.co.mycom.travel_korea.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "amazonWebServer")
+import java.util.List;
+
+@CrossOrigin(origins = "amazonWebServeramazonWebServer")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/user")
 public class UserController {
     private final UserService service;
-
-    @GetMapping("/{id}")
-    public UserEntity getUserInfo(@PathVariable Long id) {
-        UserEntity user = service.findUserInfo(id);
-        return user;
-
+    @GetMapping()
+    public List<UserEntity> getUsers() {
+        return service.findAll();
     }
 }
 
