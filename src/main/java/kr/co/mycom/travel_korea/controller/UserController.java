@@ -5,10 +5,11 @@ import kr.co.mycom.travel_korea.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "amazonWebServer")
+//@CrossOrigin(origins = "https://api.waylog.com/")
+@CrossOrigin(origins = "http://localhost:8080/")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/user")
+@RequestMapping("/api/v1")
 public class UserController {
     private final UserService service;
 
