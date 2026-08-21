@@ -1,9 +1,6 @@
 package kr.co.mycom.travel_korea.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +8,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Data
 @IdClass(BookmarkId.class)
+@Table(name = "bookmark")
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookmarkEntity {
