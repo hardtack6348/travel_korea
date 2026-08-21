@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @EnableJpaRepositories
 @Repository
 public interface BookmarkRepository extends JpaRepository<BookmarkEntity, BookmarkId> {
+
+    boolean deleteByContentId(Long id);
 }

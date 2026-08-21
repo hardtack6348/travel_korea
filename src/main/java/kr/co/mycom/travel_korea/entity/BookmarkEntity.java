@@ -14,11 +14,11 @@ import lombok.NoArgsConstructor;
 public class BookmarkEntity {
     @Id
     @Column(name = "CONTENT_ID",nullable = false)
-    private Long content_id;
+    private Long contentId;
     @Id
     @Column(name = "USER_ID",nullable = false)
-    private Long user_id;
+    private Long userId;
     @Column(name = "CREATED_AT")
-    private String created_at;
+    private String createdAt;
 
 }

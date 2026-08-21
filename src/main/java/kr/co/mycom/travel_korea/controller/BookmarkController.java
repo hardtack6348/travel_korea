@@ -29,4 +29,9 @@ public class BookmarkController {
         System.out.println("getBookmarkById : " + bookmark);
             return bookmarkService.add(bookmark);
     }
+    @DeleteMapping("/api/v1/contents/{id}/bookmark")
+    public void deleteBookmarkById(@PathVariable Long id){
+        System.out.println("deleteBookmarkById : " + id);
+        bookmarkService.drop(id);
+    }
 }

@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.service;
 
+import jakarta.transaction.Transactional;
 import kr.co.mycom.travel_korea.entity.BookmarkEntity;
 import kr.co.mycom.travel_korea.repository.BookmarkRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,8 +12,13 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class BookmarkService {
     private final BookmarkRepository bookmarkRepository;
+
+    public  void drop(Long id) {
+        bookmarkRepository.deleteByContentId(id);
+    }
 
 
     public List<BookmarkEntity> getBookmarks() {

@@ -10,6 +10,6 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookmarkId implements Serializable {
-    private Long content_id;
-    private Long user_id;
+    private Long contentId;
+    private Long userId;
 }
