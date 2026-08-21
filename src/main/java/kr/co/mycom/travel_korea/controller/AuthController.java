@@ -1,5 +1,7 @@
 package kr.co.mycom.travel_korea.controller;
 
+import com.nimbusds.jose.JOSEException;
+import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import kr.co.mycom.travel_korea.service.LoginService;
@@ -20,17 +22,17 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public UserEntity login(@RequestBody UserRequest request) {
+    public JwtConfig.TokenResponse login(@RequestBody UserRequest request) throws JOSEException {
         return service.login(request);
     }
 
     @PostMapping("/logout")
-    public UserEntity logout() {
-        return service.logout();
+    public void logout() throws Exception {
+        service.logout();
     }
 
     @PostMapping("/refresh")
-    public UserEntity refresh(@RequestBody UserRequest request) {
+    public JwtConfig.TokenResponse refresh(@RequestBody UserRequest request) {
         return service.refresh(request);
     }
 
