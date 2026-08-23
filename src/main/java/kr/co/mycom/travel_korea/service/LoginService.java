@@ -2,12 +2,17 @@ package kr.co.mycom.travel_korea.service;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.JWT;
+
+import jakarta.servlet.http.HttpServletResponse;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.config.SecurityConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.repository.UserRepository;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -37,9 +42,9 @@ public class LoginService {
         return null;
     }
 
-    public void logout() throws Exception {
+    public ResponseCookie logout() {
 //        엑세스 토큰 삭제
-        jwt.DeleteToken();
+        return jwt.DeleteToken();
     }
 
     public JwtConfig.TokenResponse refresh(UserRequest request) {

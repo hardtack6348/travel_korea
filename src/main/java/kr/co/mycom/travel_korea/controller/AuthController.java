@@ -1,11 +1,16 @@
 package kr.co.mycom.travel_korea.controller;
 
 import com.nimbusds.jose.JOSEException;
+
+import jakarta.servlet.http.HttpServletResponse;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import kr.co.mycom.travel_korea.service.LoginService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 //@CrossOrigin(origins = "https://api.waylog.com/")
@@ -27,8 +32,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public void logout() throws Exception {
-        service.logout();
+    public ResponseEntity<String> logout() {
+          ResponseCookie cookie = service.logout();
+        return ResponseEntity.ok()
+                 .header("Set-Cookie", cookie.toString())
+                .body("로그아웃이 정상적으로 처리되었습니다.");
     }
 
     @PostMapping("/refresh")
