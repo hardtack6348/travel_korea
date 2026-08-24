@@ -16,7 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 //@CrossOrigin(origins = "https://api.waylog.com/")
-@CrossOrigin(origins = "http://localhost:8080/")
+@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequiredArgsConstructor
 @Slf4j
@@ -49,8 +49,11 @@ public class AuthController {
     }
 
     @PostMapping("/email-verfications")
-    public void sendMessage(@RequestParam("email") String email) {
-        service.sendCodeToEmail(email);
+    public void sendMessage(@RequestBody UserRequest request) throws JOSEException {
+
+        System.out.println("request : "+request);
+        System.out.println(request.getEmail());
+        service.sendCodeToEmail(request.getEmail());
     }
 
     @GetMapping("/email-verfications/confirm")

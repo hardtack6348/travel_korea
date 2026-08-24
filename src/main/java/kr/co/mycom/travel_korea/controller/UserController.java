@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 //@CrossOrigin(origins = "https://api.waylog.com/")
-@CrossOrigin(origins = "http://localhost:8080/")
+@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
