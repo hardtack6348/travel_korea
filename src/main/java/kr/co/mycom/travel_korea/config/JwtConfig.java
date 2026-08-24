@@ -5,12 +5,8 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-
-import jakarta.servlet.http.HttpServletResponse;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -19,58 +15,43 @@ import java.util.UUID;
 @Component
 public class JwtConfig {
 
-    private final byte[] secretKeyBytes;
     private final long accessExpiration;
     private final long refreshExpiration;
+    private final JWSSigner signer;
+    private final JWSVerifier verifier;
+
     public record TokenResponse(String accessToken, String refreshToken) {}
+    public record RefreshTokenValidationResult(String email, boolean isExpired) {}
+
     public JwtConfig(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-expiration}") long accessExpiration,
-            @Value("${jwt.refresh-expiration}") long refreshExpiration) {
-        this.secretKeyBytes = secret.getBytes();
+            @Value("${jwt.refresh-expiration}") long refreshExpiration) throws JOSEException {
+        byte[] secretKeyBytes = secret.getBytes();
         this.accessExpiration = accessExpiration;
         this.refreshExpiration = refreshExpiration;
+
+        // 서명기 및 검증기를 인스턴스화하여 재사용 (성능 최적화)
+        this.signer = new MACSigner(secretKeyBytes);
+        this.verifier = new MACVerifier(secretKeyBytes);
     }
 
     // 1. Access Token과 Refresh Token 동시 발급
     public TokenResponse createTokenPair(String email) throws JOSEException {
-        JWSSigner signer = new MACSigner(secretKeyBytes);
-        Date now = new Date();
-
-        // Access Token 생성 (사용자 식별 정보 포함)
-        JWTClaimsSet accessClaims = new JWTClaimsSet.Builder()
-                .subject(email)
-                .claim("type", "ACCESS")
-                .issueTime(now)
-                .expirationTime(new Date(now.getTime() + accessExpiration))
-                .build();
-        SignedJWT accessToken = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), accessClaims);
-        accessToken.sign(signer);
-
-        // Refresh Token 생성 (보안을 위해 최소한의 식별 정보인 무작위 UUID와 이메일 포함)
-        JWTClaimsSet refreshClaims = new JWTClaimsSet.Builder()
-                .jwtID(UUID.randomUUID().toString())
-                .subject(email)
-                .claim("type", "REFRESH")
-                .issueTime(now)
-                .expirationTime(new Date(now.getTime() + refreshExpiration))
-                .build();
-        SignedJWT refreshToken = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), refreshClaims);
-        refreshToken.sign(signer);
-
-        return new TokenResponse(accessToken.serialize(), refreshToken.serialize());
+        String accessToken = createAccessToken(email);
+        String refreshToken = createSingleToken(email, "REFRESH", refreshExpiration, true);
+        return new TokenResponse(accessToken, refreshToken);
     }
 
-    // 2. Access Token 검증 및 email 추출 (API 요청 처리용)
+    // 2. 단일 Access Token 발급
+    public String createAccessToken(String email) throws JOSEException {
+        return createSingleToken(email, "ACCESS", accessExpiration, false);
+    }
+
+    // 3. Access Token 검증 및 email 추출 (API 요청 처리용)
     public String validateAccessToken(String token) throws Exception {
-        SignedJWT signedJWT = SignedJWT.parse(token);
-        JWSVerifier verifier = new MACVerifier(secretKeyBytes);
+        JWTClaimsSet claims = parseAndVerifyToken(token);
 
-        if (!signedJWT.verify(verifier)) {
-            throw new IllegalArgumentException("토큰 서명이 올바르지 않습니다.");
-        }
-
-        JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
         if (claims.getExpirationTime().before(new Date())) {
             throw new IllegalArgumentException("만료된 Access Token입니다.");
         }
@@ -82,37 +63,73 @@ public class JwtConfig {
         return claims.getSubject();
     }
 
-    // 3. Refresh Token 검증후 email 추출 (토큰 재발급 요청 처리용)
+    // 4. Refresh Token 검증후 email 추출 (만료 시 예외 처리)
     public String validateRefreshToken(String token) throws Exception {
-        SignedJWT signedJWT = SignedJWT.parse(token);
-        JWSVerifier verifier = new MACVerifier(secretKeyBytes);
-
-        if (!signedJWT.verify(verifier)) {
-            throw new IllegalArgumentException("토큰 서명이 올바르지 않습니다.");
-        }
-
-        JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
-        if (claims.getExpirationTime().before(new Date())) {
+        RefreshTokenValidationResult result = validateRefreshTokenWithExpirationCheck(token);
+        if (result.isExpired()) {
             throw new IllegalArgumentException("만료된 Refresh Token입니다. 다시 로그인하세요.");
         }
+        return result.email();
+    }
+
+    // 5. Refresh Token 검증 (만료 여부 함께 반환)
+    public RefreshTokenValidationResult validateRefreshTokenWithExpirationCheck(String token) throws Exception {
+        JWTClaimsSet claims = parseAndVerifyToken(token);
 
         if (!"REFRESH".equals(claims.getStringClaim("type"))) {
             throw new IllegalArgumentException("올바른 Refresh Token 타입이 아닙니다.");
         }
-        return claims.getSubject();
+
+        boolean isExpired = claims.getExpirationTime().before(new Date());
+        return new RefreshTokenValidationResult(claims.getSubject(), isExpired);
     }
-    //4. Token 삭제
-    public ResponseCookie DeleteToken(){
-            // 2. DB를 거치지 않고 프론트엔드의 쿠키를 무효화하는 명령만 전달
-            // 수명을 0(Max-Age=0)으로 주어 브라우저가 읽는 즉시 파기하게 만듭니다.
-        ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
-                .maxAge(0)               // 즉시 삭제
-                .path("/")               // 경로 일치
-                .httpOnly(true)          // XSS 방어
-                .secure(true)            // HTTPS 설정
-                .sameSite("Strict")      // CSRF 방어
+
+    // 6. Refresh Token 쿠키 생성
+    public ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from("refreshToken", refreshToken)
+                .maxAge(refreshExpiration / 1000) // ms -> s 변환
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
                 .build();
-            // 3. 컨트롤러가 전송할 수 있도록 헤더 문자열 형태로 반환합니다.
-        return deleteCookie;
+    }
+
+    // 7. Token 삭제 쿠키 생성
+    public ResponseCookie deleteToken() {
+        return ResponseCookie.from("refreshToken", "")
+                .maxAge(0)
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .build();
+    }
+
+    // --- Private Helper Methods (중복 로직 공통화) ---
+
+    private String createSingleToken(String email, String type, long expirationMs, boolean includeJti) throws JOSEException {
+        Date now = new Date();
+        JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
+                .subject(email)
+                .claim("type", type)
+                .issueTime(now)
+                .expirationTime(new Date(now.getTime() + expirationMs));
+
+        if (includeJti) {
+            builder.jwtID(UUID.randomUUID().toString());
+        }
+
+        SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
+        signedJWT.sign(signer);
+        return signedJWT.serialize();
+    }
+
+    private JWTClaimsSet parseAndVerifyToken(String token) throws Exception {
+        SignedJWT signedJWT = SignedJWT.parse(token);
+        if (!signedJWT.verify(verifier)) {
+            throw new IllegalArgumentException("토큰 서명이 올바르지 않습니다.");
+        }
+        return signedJWT.getJWTClaimsSet();
     }
 }

@@ -2,13 +2,14 @@ package kr.co.mycom.travel_korea.controller;
 
 import com.nimbusds.jose.JOSEException;
 
-import jakarta.servlet.http.HttpServletResponse;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.UserRequest;
-import kr.co.mycom.travel_korea.service.LoginService;
+import kr.co.mycom.travel_korea.service.AuthService;
 import lombok.RequiredArgsConstructor;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +18,10 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "http://localhost:8080/")
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 @RequestMapping("/api/v1/auth")
 public class AuthController {
-    private final LoginService service;
+    private final AuthService service;
 
     @PostMapping("/signup")
     public UserEntity signup(@RequestBody UserRequest request) {
@@ -40,18 +42,24 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public JwtConfig.TokenResponse refresh(@RequestBody UserRequest request) {
-        return service.refresh(request);
+    public ResponseEntity<?> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken) {
+        return service.refreshToken(refreshToken);
     }
 
     @PostMapping("/email-verfications")
-    public UserEntity emailVerfications(@RequestBody UserRequest request) {
-        return service.emailVerfication(request);
+    public ResponseEntity sendMessage(@RequestParam("email") String email) {
+        service.sendCodeToEmail(email);
+
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    @PostMapping("/email-verfications/confirm")
-    public UserEntity emailVerficationsConfirm(@RequestBody UserRequest request) {
-        return service.emailVerficationConfirm(request);
+    @GetMapping("/email-verfications/confirm")
+    public ResponseEntity verificationEmail(@RequestParam("email") String email,
+                                            @RequestParam("code") String authCode) {
+//        EmailVerificationResult response = service.verifiedCode(email, authCode);
+//        return new ResponseEntity<>(new SingleResponseDto<>(response), HttpStatus.OK);
+        return null;
     }
 
     @PostMapping("/password-reset-requests")
@@ -62,5 +70,10 @@ public class AuthController {
     @PutMapping("/password")
     public UserEntity changePassword(@RequestBody UserRequest request) {
         return service.changePassword(request);
+    }
+
+    @PostMapping("/findNickname")
+    public String findNickname(@RequestBody UserRequest request) {
+        return service.exitNickname(request.getNickname());
     }
 }
