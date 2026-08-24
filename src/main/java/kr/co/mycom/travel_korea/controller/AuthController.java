@@ -49,17 +49,16 @@ public class AuthController {
     }
 
     @PostMapping("/email-verfications")
-    public ResponseEntity sendMessage(@RequestParam("email") String email) {
+    public void sendMessage(@RequestParam("email") String email) {
         service.sendCodeToEmail(email);
-
-        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     @GetMapping("/email-verfications/confirm")
     public ResponseEntity verificationEmail(@RequestParam("email") String email,
                                             @RequestParam("code") String authCode) {
-        EmailVerificationResult response = service.verifiedCode(email, authCode);
-        return new ResponseEntity<>(new MailRequest(response), HttpStatus.OK);
+//        String response = service.emailVerficationConfirm(email, authCode);
+//        return new ResponseEntity<>(new MailRequest(response), HttpStatus.OK);
+        return null;
     }
 
     @PostMapping("/password-reset-requests")

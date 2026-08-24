@@ -20,7 +20,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-//                .csrf().disable() //jwt토큰을 사용하므로 csrf비활성화 -> localstorage에 저장시 비활성화 아니면 활성화
+                .csrf(csrf -> csrf.disable()) //jwt토큰을 사용하므로 csrf비활성화 -> localstorage에 저장시 비활성화 아니면 활성화
 //                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)//security에서 사용하는 session 비활성화
 //                .and()
                 .authorizeHttpRequests(auth ->auth.anyRequest().permitAll());

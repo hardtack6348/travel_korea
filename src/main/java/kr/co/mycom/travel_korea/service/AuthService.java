@@ -2,6 +2,7 @@ package kr.co.mycom.travel_korea.service;
 
 import com.nimbusds.jose.JOSEException;
 
+import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.config.SecurityConfig;
@@ -19,6 +20,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Service
@@ -31,24 +37,31 @@ public class AuthService {
     private final JavaMailSender emailSender;
     private static final String AUTH_CODE_PREFIX = "AuthCode ";
     @Value("${spring.mail.auth-code-expiration-millis}")
-    private long authCodeExpirationMillis;
 
-    public UserEntity signup(@RequestBody UserRequest userInput) {
+    public UserEntity signup( UserRequest userInput) {
         UserEntity rep = new UserEntity();
+        rep.setCreated_at(LocalDateTime.now().toString());
         rep.setEmail(userInput.getEmail());
         rep.setPassword(security.passwordEncoder().encode(userInput.getPassword()));
         rep.setNickname(userInput.getNickname());
+        rep.setGrade("user");
+
         return rep;
     }
 
     public JwtConfig.TokenResponse login(@RequestBody UserRequest request) throws JOSEException {
         UserEntity dbUser = repo.findByEmail(request.getEmail());
-        if (dbUser ==null) return null;
+        if (dbUser ==null) {
+            System.out.println("db에 user를 찾을 수 없습니다.");
+            return null;
+        }
         if (security.passwordEncoder().matches(request.getPassword(), dbUser.getPassword())) {
 //       로그인 성공
 //       완료 페이지가 어떻게 될지 몰라서 이메일만 보냄
+            System.out.println("로그인 성공");
          return jwt.createTokenPair(dbUser.getEmail());
         }
+        System.out.println("알 수 없는 오류");
         return null;
     }
 
@@ -114,16 +127,6 @@ public class AuthService {
         return "사용가능한 이메일입니다.";
     }
 
-    public void emailVerfication(String toEmail, String title, String text) {
-        SimpleMailMessage emailForm = createEmailForm(toEmail, title, text);
-        try {
-            emailSender.send(emailForm);
-        } catch (RuntimeException e) {
-            System.out.printf("MailService.sendEmail exception occur toEmail: {}, " +
-                    "title: {}, text: {}", toEmail, title, text);
-        }
-    }
-
     private SimpleMailMessage createEmailForm(String toEmail,
                                               String title,
                                               String text) {
@@ -153,10 +156,26 @@ public class AuthService {
     }
 
     public void sendCodeToEmail(String email) {
-    }
+        // 확인코드 담긴 이메일 발송
+        String title = "Waylog 이메일 인증 번호";
 
-    public EmailVerificationResult verifiedCode(String email, String authCode) {
-    return null;
+        String resivedCode = "여기에 확인코드를 입력";
+
+        String content = "<html>"
+                + "<body>"
+                + "<h1>ImgForest 인증 코드: " + resivedCode + "</h1>"
+                + "<p>해당 코드를 홈페이지에 입력하세요.</p>"
+                + "<footer style='color: grey; font-size: small;'>"
+                + "<p>※본 메일은 자동응답 메일이므로 본 메일에 회신하지 마시기 바랍니다.</p>"
+                + "</footer>"
+                + "</body>"
+                + "</html>";
+        try {
+            emailSender.send(createEmailForm(email, title, content));
+        } catch (Exception e) {
+            e.printStackTrace(); // 또는 로거를 사용하여 상세한 예외 정보 로깅
+            throw new RuntimeException("Unable to send email in sendCodeToEmail", e); // 원인 예외를 포함시키기
+        }
     }
-}
+    }
 

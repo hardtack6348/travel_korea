@@ -1,7 +1,6 @@
 package kr.co.mycom.travel_korea.entity;
 
 import jakarta.persistence.*;
-import kr.co.mycom.travel_korea.request.UserRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
