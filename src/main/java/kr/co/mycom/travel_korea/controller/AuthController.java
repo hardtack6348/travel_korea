@@ -4,6 +4,7 @@ import com.nimbusds.jose.JOSEException;
 
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
+import kr.co.mycom.travel_korea.request.MailRequest;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import kr.co.mycom.travel_korea.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -57,9 +58,8 @@ public class AuthController {
     @GetMapping("/email-verfications/confirm")
     public ResponseEntity verificationEmail(@RequestParam("email") String email,
                                             @RequestParam("code") String authCode) {
-//        EmailVerificationResult response = service.verifiedCode(email, authCode);
-//        return new ResponseEntity<>(new SingleResponseDto<>(response), HttpStatus.OK);
-        return null;
+        EmailVerificationResult response = service.verifiedCode(email, authCode);
+        return new ResponseEntity<>(new MailRequest(response), HttpStatus.OK);
     }
 
     @PostMapping("/password-reset-requests")

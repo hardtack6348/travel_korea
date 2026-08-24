@@ -156,6 +156,7 @@ public class AuthService {
     }
 
     public EmailVerificationResult verifiedCode(String email, String authCode) {
+    return null;
     }
 }
 
