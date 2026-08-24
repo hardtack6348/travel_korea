@@ -31,22 +31,25 @@ import java.util.Map;
 @Transactional
 @RequiredArgsConstructor
 public class AuthService {
+
     private final JwtConfig jwt;
     private final SecurityConfig security;
     private final UserRepository repo;
     private final JavaMailSender emailSender;
     private static final String AUTH_CODE_PREFIX = "AuthCode ";
     @Value("${spring.mail.auth-code-expiration-millis}")
+    private Long authCodeExpiration;
 
-    public UserEntity signup( UserRequest userInput) {
+    public UserEntity signup(UserRequest userInput) {
         UserEntity rep = new UserEntity();
-        rep.setCreated_at(LocalDateTime.now().toString());
+        rep.setCreated_at(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         rep.setEmail(userInput.getEmail());
         rep.setPassword(security.passwordEncoder().encode(userInput.getPassword()));
         rep.setNickname(userInput.getNickname());
         rep.setGrade("user");
+        return  repo.save(rep);
 
-        return rep;
+
     }
 
     public JwtConfig.TokenResponse login(@RequestBody UserRequest request) throws JOSEException {
