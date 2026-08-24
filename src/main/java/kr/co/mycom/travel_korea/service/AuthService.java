@@ -39,15 +39,18 @@ public class AuthService {
     private static final String AUTH_CODE_PREFIX = "AuthCode ";
     @Value("${spring.mail.auth-code-expiration-millis}")
     private Long authCodeExpiration;
-
+    @Value("${MAIL_USERNAME}")
+    private String mailid ;
+    @Value("${MAIL_PW}")
+    private String mailpw;
     public UserEntity signup(UserRequest userInput) {
         UserEntity rep = new UserEntity();
-        rep.setCreated_at(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        rep.setCreated_at(LocalDateTime.now());
         rep.setEmail(userInput.getEmail());
         rep.setPassword(security.passwordEncoder().encode(userInput.getPassword()));
         rep.setNickname(userInput.getNickname());
         rep.setGrade("user");
-        return  repo.save(rep);
+        return repo.save(rep);
 
 
     }
@@ -159,6 +162,7 @@ public class AuthService {
     }
 
     public void sendCodeToEmail(String email) {
+
         // 확인코드 담긴 이메일 발송
         String title = "Waylog 이메일 인증 번호";
 
@@ -174,6 +178,9 @@ public class AuthService {
                 + "</body>"
                 + "</html>";
         try {
+            System.out.println("mailid : " + mailid);
+            System.out.println("mailpw : " + mailpw);
+
             emailSender.send(createEmailForm(email, title, content));
         } catch (Exception e) {
             e.printStackTrace(); // 또는 로거를 사용하여 상세한 예외 정보 로깅
