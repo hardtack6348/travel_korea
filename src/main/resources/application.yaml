@@ -38,15 +38,15 @@ spring:
               user-name-attribute: id
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.0.192:3306/xe
-    username: scott
-    password: TigerTiger1$
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PW}
 #    url: ${secrets.DB_URL}
 #    username: ${secrets.DB_USER}
 #    password: ${secrets.DB_PW}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: true
     properties:
       hibernate:
