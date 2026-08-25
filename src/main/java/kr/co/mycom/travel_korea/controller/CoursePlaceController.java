@@ -1,10 +1,8 @@
 package kr.co.mycom.travel_korea.controller;
 
 import kr.co.mycom.travel_korea.entity.CoursePlaceEntity;
-import kr.co.mycom.travel_korea.repository.CoursePlaceRepository;
 import kr.co.mycom.travel_korea.service.CoursePlaceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
