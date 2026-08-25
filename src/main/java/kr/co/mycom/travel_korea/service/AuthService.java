@@ -56,7 +56,7 @@ public class AuthService {
 
     }
 
-    public JwtConfig.TokenResponse login(@RequestBody UserRequest request) throws JOSEException {
+    public ResponseEntity login(@RequestBody UserRequest request) throws JOSEException {
         UserEntity dbUser = repo.findByEmail(request.getEmail());
         if (dbUser ==null) {
             System.out.println("db에 user를 찾을 수 없습니다.");
@@ -66,7 +66,8 @@ public class AuthService {
 //       로그인 성공
 //       완료 페이지가 어떻게 될지 몰라서 이메일만 보냄
             System.out.println("로그인 성공");
-         return jwt.createTokenPair(dbUser.getEmail());
+         return ResponseEntity.ok(jwt.createTokenPair(dbUser.getEmail()));
+
         }
         System.out.println("알 수 없는 오류");
         return null;
@@ -136,11 +137,16 @@ public class AuthService {
         }
         String verifiedEmail = (String)session.getAttribute(EMAIL_KEY);
         Integer verifiedCode = (Integer)session.getAttribute(CODE_KEY);
-        if (    verifiedEmail==request.getEmail() &&
-                verifiedCode==request.getAuthCode()){
+        if (    verifiedEmail.equals(request.getEmail()) &&
+                verifiedCode.equals(request.getAuthCode())){
             return ResponseEntity.ok().build();
         }
-        return null;
+        System.out.println(verifiedEmail);
+        System.out.println(verifiedCode);
+        System.out.println(request.getEmail());
+        System.out.println(request.getAuthCode());
+        System.out.println(request);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
     public void changePassword(UserRequest request) {

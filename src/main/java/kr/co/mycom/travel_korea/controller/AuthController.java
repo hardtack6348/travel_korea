@@ -2,6 +2,7 @@ package kr.co.mycom.travel_korea.controller;
 
 import com.nimbusds.jose.JOSEException;
 
+import jakarta.servlet.http.HttpSession;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.MailRequest;
@@ -31,7 +32,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public JwtConfig.TokenResponse login(@RequestBody UserRequest request) throws JOSEException {
+    public ResponseEntity login(@RequestBody UserRequest request, HttpSession session) throws JOSEException {
+        session.setAttribute("email", request.getEmail());
         return service.login(request);
     }
 
