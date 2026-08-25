@@ -25,9 +25,14 @@ public class CoursePlaceService {
         return coursePlaceRepository.findAll();
     }
 
-    public CoursePlaceEntity drop(Integer courseId) {
+    public void drop(Integer courseId) {
         coursePlaceRepository.deleteById(courseId);
 
-        return null;
+    }
+
+    public CoursePlaceEntity modify(Integer courseId, Integer placeId, CoursePlaceEntity coursePlaceEntity) {
+        coursePlaceEntity.setCourseId(courseId);
+        coursePlaceEntity.setCoursePlaceId(placeId);
+        return coursePlaceRepository.save(coursePlaceEntity);
     }
 }

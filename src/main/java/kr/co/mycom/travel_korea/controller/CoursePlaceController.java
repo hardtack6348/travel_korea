@@ -25,9 +25,15 @@ public class CoursePlaceController {
         return coursePlaceService.add(coursePlaceEntity);
 
     }
-    @DeleteMapping("/api/v1/admin/courses/{id}")
-    public CoursePlaceEntity GetCoursePlaceEntityByCourseId(@PathVariable Integer courseId) {
-        return coursePlaceService.drop( courseId);
+    @DeleteMapping("/api/v1/admin/courses/{courseId}")
+    public void GetCoursePlaceEntityByCourseId(@PathVariable Integer courseId) {
+         coursePlaceService.drop( courseId);
     }
+    @PatchMapping("/api/v1/admin/courses/{courseId}/places/{placeId}")
+    public CoursePlaceEntity GetCoursePlaceEntityById(@PathVariable  Integer courseId, @PathVariable Integer placeId,
+                                                      @RequestBody  CoursePlaceEntity coursePlaceEntity) {
+        return coursePlaceService.modify(courseId, placeId, coursePlaceEntity);
+    }
+
 }
 
