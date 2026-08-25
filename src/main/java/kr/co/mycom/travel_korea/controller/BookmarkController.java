@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.controller;
 
+import jakarta.servlet.http.HttpSession;
 import kr.co.mycom.travel_korea.entity.BookmarkEntity;
 import kr.co.mycom.travel_korea.service.BookmarkService;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,7 @@ public class BookmarkController {
         System.out.println("BookmarkController  생성자 호출중..................................");
     }
 
-    @GetMapping("/api/v1/bookmarks")
+    @GetMapping("/api/v1/users/me/bookmarks")
     public List<BookmarkEntity>  getBookmarks() {
         System.out.println("getBookmarks =========================> ");
         return bookmarkService.getBookmarks();
@@ -33,5 +34,11 @@ public class BookmarkController {
     public void deleteBookmarkById(@PathVariable Long id){
         System.out.println("deleteBookmarkById : " + id);
         bookmarkService.drop(id);
+    }
+    @GetMapping("/api/v1/contents/{id}/bookmark/{uid}")
+    public BookmarkEntity  getBookmarkById(@PathVariable("id") Long id, @PathVariable("uid")  Long uid){
+        System.out.println("getBookmarkById : " + id);
+
+        return bookmarkService.getBookmark(id, uid);
     }
 }
