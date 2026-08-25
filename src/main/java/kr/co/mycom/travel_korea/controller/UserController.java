@@ -3,6 +3,7 @@ package kr.co.mycom.travel_korea.controller;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 //@CrossOrigin(origins = "https://api.waylog.com/")
@@ -17,7 +18,23 @@ public class UserController {
     public UserEntity getUserInfo(@PathVariable Long id) {
         UserEntity user = service.findUserInfo(id);
         return user;
-
     }
+
+    @GetMapping("users/check-email")
+    public ResponseEntity checkEmail(@RequestParam("email") String email) {
+        if (service.existEmail(email)){
+            return  ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("users/check-nickname")
+    public ResponseEntity checkNickname(@RequestParam("nickname") String nickname) {
+        if (service.existEmail(nickname)){
+            return  ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok().build();
+    }
+
 }
 

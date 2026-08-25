@@ -16,4 +16,17 @@ public class UserService {
         UserEntity user = new UserEntity();
         return user;
     }
+    public boolean existNickname(String nickname) {
+        if (repo.existsByNickname(nickname)){
+            return false;
+        }
+        return true;
+    }
+
+    public boolean existEmail(String email) {
+        if (repo.existsByEmail(email)){
+            return false;
+        }
+        return true;
+    }
 }

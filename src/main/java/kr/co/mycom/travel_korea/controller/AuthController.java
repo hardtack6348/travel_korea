@@ -7,10 +7,10 @@ import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.MailRequest;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import kr.co.mycom.travel_korea.service.AuthService;
+import kr.co.mycom.travel_korea.service.UserService;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final AuthService service;
+    private final UserService userService;
 
     @PostMapping("/signup")
     public UserEntity signup(@RequestBody UserRequest request) {
@@ -48,34 +49,24 @@ public class AuthController {
         return service.refreshToken(refreshToken);
     }
 
-    @PostMapping("/email-verfications")
-    public void sendMessage(@RequestBody UserRequest request) throws JOSEException {
-
-        System.out.println("request : "+request);
-        System.out.println(request.getEmail());
+    @PostMapping("/email-verification")
+    public void sendMessage(@RequestBody UserRequest request){
         service.sendCodeToEmail(request.getEmail());
     }
 
-    @GetMapping("/email-verfications/confirm")
-    public ResponseEntity verificationEmail(@RequestParam("email") String email,
-                                            @RequestParam("code") String authCode) {
-//        String response = service.emailVerficationConfirm(email, authCode);
-//        return new ResponseEntity<>(new MailRequest(response), HttpStatus.OK);
-        return null;
+    @PostMapping("/email-verification/confirm")
+    public ResponseEntity verificationEmail(@RequestBody MailRequest request) {
+        ResponseEntity response = service.emailVerificationConfirm(request);
+        return response;
     }
 
     @PostMapping("/password-reset-requests")
-    public UserEntity passwordResetRequests(@RequestBody UserRequest request) {
-        return service.passwordResetRequest(request);
+    public void sendPasswordResetMessage(@RequestBody UserRequest request){
+        service.sendCodeToEmail(request.getEmail());
     }
 
     @PutMapping("/password")
-    public UserEntity changePassword(@RequestBody UserRequest request) {
-        return service.changePassword(request);
-    }
-
-    @PostMapping("/findNickname")
-    public String findNickname(@RequestBody UserRequest request) {
-        return service.exitNickname(request.getNickname());
+    public void changePassword(@RequestBody UserRequest request) {
+         service.changePassword(request);
     }
 }

@@ -3,29 +3,30 @@ package kr.co.mycom.travel_korea.service;
 import com.nimbusds.jose.JOSEException;
 
 import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.config.SecurityConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.repository.UserRepository;
+import kr.co.mycom.travel_korea.request.MailRequest;
 import kr.co.mycom.travel_korea.request.UserRequest;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.sql.Date;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Random;
 
 @Service
 @Transactional
@@ -36,13 +37,13 @@ public class AuthService {
     private final SecurityConfig security;
     private final UserRepository repo;
     private final JavaMailSender emailSender;
-    private static final String AUTH_CODE_PREFIX = "AuthCode ";
+    private final HttpSession session;
+    private static final String EMAIL_KEY = "verificationEmail";
+    private static final String CODE_KEY = "verificationCode";
+    private static final String EXPIRES_AT_KEY = "verificationExpiresAt";
     @Value("${spring.mail.auth-code-expiration-millis}")
     private Long authCodeExpiration;
-    @Value("${MAIL_USERNAME}")
-    private String mailid ;
-    @Value("${MAIL_PW}")
-    private String mailpw;
+
     public UserEntity signup(UserRequest userInput) {
         UserEntity rep = new UserEntity();
         rep.setCreated_at(LocalDateTime.now());
@@ -113,79 +114,108 @@ public class AuthService {
         }
     }
 
-    public String exitNickname(String nickname) {
-        if (nickname == null || nickname.isEmpty()) {
-            return "닉네임을 입력해주세요";
-        }
-        if (repo.existsByNickname(nickname)){
-            return "이미 있는 닉네임입니다.";
-        }
-        return "사용가능한 닉네임입니다.";
-    }
+    private void createEmailForm(String toEmail,
+                                        String title,
+                                        String text) throws MessagingException {
+        MimeMessage message = emailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-    public String exitEmail(String email) {
-        if (email == null || email.isEmpty()) {
-            return "이메일을 입력해주세요";
-        }
-        if (repo.existsByEmail(email)){
-            return "이미 존재하는 이메일입니다.";
-        }
-        return "사용가능한 이메일입니다.";
-    }
-
-    private SimpleMailMessage createEmailForm(String toEmail,
-                                              String title,
-                                              String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject(title);
-        message.setText(text);
-
-        return message;
+        helper.setTo(toEmail);
+        helper.setSubject(title);
+        helper.setText(text,true);
+        emailSender.send(message);
     }
 
 
 
-    public ResponseEntity emailVerficationConfirm(UserRequest request) {
+    public ResponseEntity emailVerificationConfirm(MailRequest request) {
 //        이메일 인증번호 확인
+        if(System.currentTimeMillis() > (long)session.getAttribute(EXPIRES_AT_KEY)){
+            clearVerification(session);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String verifiedEmail = (String)session.getAttribute(EMAIL_KEY);
+        Integer verifiedCode = (Integer)session.getAttribute(CODE_KEY);
+        if (    verifiedEmail==request.getEmail() &&
+                verifiedCode==request.getAuthCode()){
+            return ResponseEntity.ok().build();
+        }
         return null;
     }
 
-    public UserEntity passwordResetRequest(UserRequest request) {
-//        비밀번호 재설정요청
-        return null;
-    }
-
-    public UserEntity changePassword(UserRequest request) {
-//        비밀번호 변경
-        return null;
+    public void changePassword(UserRequest request) {
+        UserEntity user = repo.findByEmail(request.getEmail());
+        user.setPassword(security.passwordEncoder().encode(request.getPassword()));
+        repo.save(user);
     }
 
     public void sendCodeToEmail(String email) {
-
         // 확인코드 담긴 이메일 발송
         String title = "Waylog 이메일 인증 번호";
-
-        String resivedCode = "여기에 확인코드를 입력";
-
-        String content = "<html>"
-                + "<body>"
-                + "<h1>ImgForest 인증 코드: " + resivedCode + "</h1>"
-                + "<p>해당 코드를 홈페이지에 입력하세요.</p>"
-                + "<footer style='color: grey; font-size: small;'>"
-                + "<p>※본 메일은 자동응답 메일이므로 본 메일에 회신하지 마시기 바랍니다.</p>"
-                + "</footer>"
-                + "</body>"
-                + "</html>";
+        Random random = new Random();
+        int checkNum = random.nextInt(888888) + 111111;
+        String content =
+                "<!DOCTYPE html>"
+                        + "<html>"
+                        + "<head><meta charset='UTF-8'></head>"
+                        + "<body style='margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;'>"
+                        + "  <table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='background-color: #f4f6f8; padding: 40px 0;'>"
+                        + "    <tr>"
+                        + "      <td align='center'>"
+                        + "        <table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='max-width: 500px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden;'>"
+                        // 브랜드 헤더
+                        + "          <tr>"
+                        + "            <td style='background-color: #2563eb; padding: 24px; text-align: center;'>"
+                        + "              <h1 style='color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;'>Waylog</h1>"
+                        + "            </td>"
+                        + "          </tr>"
+                        // 본문 콘텐츠
+                        + "          <tr>"
+                        + "            <td style='padding: 40px 32px; text-align: center;'>"
+                        + "              <h2 style='color: #1e293b; margin: 0 0 12px 0; font-size: 20px; font-weight: 600;'>이메일 인증 번호</h2>"
+                        + "              <p style='color: #64748b; margin: 0 0 28px 0; font-size: 14px; line-height: 1.5;'>Waylog를 이용해 주셔서 감사합니다.<br>아래의 인증 번호를 홈페이지 인증 창에 입력해 주세요.</p>"
+                        // 인증코드 강조 박스
+                        + "              <div style='background-color: #f1f5f9; border-radius: 8px; padding: 16px 24px; display: inline-block; margin-bottom: 24px;'>"
+                        + "                <span style='color: #2563eb; font-size: 32px; font-weight: 800; letter-spacing: 6px; font-family: monospace;'>" + checkNum + "</span>"
+                        + "              </div>"
+                        + "              <p style='color: #ef4444; margin: 0; font-size: 13px; font-weight: 500;'>※ 본 인증번호는 3분 동안만 유효합니다.</p>"
+                        + "            </td>"
+                        + "          </tr>"
+                        // 푸터
+                        + "          <tr>"
+                        + "            <td style='background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; text-align: center;'>"
+                        + "              <p style='color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.5;'>본 메일은 발신 전용 메일이므로 회신되지 않습니다.<br>© Waylog. All rights reserved.</p>"
+                        + "            </td>"
+                        + "          </tr>"
+                        + "        </table>"
+                        + "      </td>"
+                        + "    </tr>"
+                        + "  </table>"
+                        + "</body>"
+                        + "</html>";
         try {
-            System.out.println("mailid : " + mailid);
-            System.out.println("mailpw : " + mailpw);
-
-            emailSender.send(createEmailForm(email, title, content));
+            createEmailForm(email, title, content);
+            // 인증번호 관련 정보를 세션에 저장
+            session.setAttribute(EMAIL_KEY, email);
+            session.setAttribute(CODE_KEY, checkNum);
+            session.setAttribute(
+                    EXPIRES_AT_KEY,
+                    System.currentTimeMillis() + authCodeExpiration
+            );
+            // 인증번호를 다시 발급하면 이전 인증 완료 상태를 해제
         } catch (Exception e) {
-            e.printStackTrace(); // 또는 로거를 사용하여 상세한 예외 정보 로깅
+            e.printStackTrace();
+            // 또는 로거를 사용하여 상세한 예외 정보 로깅
             throw new RuntimeException("Unable to send email in sendCodeToEmail", e); // 원인 예외를 포함시키기
         }
     }
+    public void clearVerification(
+            HttpSession session
+    ) {
+        session.removeAttribute(EMAIL_KEY);
+        session.removeAttribute(CODE_KEY);
+        session.removeAttribute(EXPIRES_AT_KEY);
     }
+
+}
 
