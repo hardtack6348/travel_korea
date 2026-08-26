@@ -5,20 +5,23 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "users")
 public class UserEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "USER_ID",nullable = false)
+    @Column(name = "USER_ID")
     private Long id;
     @Column(name = "EMAIL",nullable = false)
     private String email;
     @Column(name = "NICKNAME",nullable = false, length = 30)
     private String nickname;
-    @Column(name = "PASSWORD",nullable = false,  length = 128)
+    @Column(name = "PASSWORD_HASH",nullable = false,  length = 128)
     private String password;
     @Column(name = "INTRODUCE", length = 200)
     private String introduce;
@@ -28,8 +31,7 @@ public class UserEntity {
     private String gender;
     @Column(name = "GRADE")
     private String grade;
-    @Column(name = "CREATED_AT")
-    private String created_at;
-
+    @Column(nullable = false, name = "CREATED_AT")
+    private LocalDateTime created_at;
 
 }

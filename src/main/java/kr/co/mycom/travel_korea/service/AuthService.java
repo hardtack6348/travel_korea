@@ -1,0 +1,227 @@
+package kr.co.mycom.travel_korea.service;
+
+import com.nimbusds.jose.JOSEException;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
+import kr.co.mycom.travel_korea.config.JwtConfig;
+import kr.co.mycom.travel_korea.config.SecurityConfig;
+import kr.co.mycom.travel_korea.entity.UserEntity;
+import kr.co.mycom.travel_korea.repository.UserRepository;
+import kr.co.mycom.travel_korea.request.MailRequest;
+import kr.co.mycom.travel_korea.request.UserRequest;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Random;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final JwtConfig jwt;
+    private final SecurityConfig security;
+    private final UserRepository repo;
+    private final JavaMailSender emailSender;
+    private final HttpSession session;
+    private static final String EMAIL_KEY = "verificationEmail";
+    private static final String CODE_KEY = "verificationCode";
+    private static final String EXPIRES_AT_KEY = "verificationExpiresAt";
+    @Value("${spring.mail.auth-code-expiration-millis}")
+    private Long authCodeExpiration;
+
+    public UserEntity signup(UserRequest userInput) {
+        UserEntity rep = new UserEntity();
+        rep.setCreated_at(LocalDateTime.now());
+        rep.setEmail(userInput.getEmail());
+        rep.setPassword(security.passwordEncoder().encode(userInput.getPassword()));
+        rep.setNickname(userInput.getNickname());
+        rep.setGrade("user");
+        return repo.save(rep);
+
+
+    }
+
+    public ResponseEntity login(@RequestBody UserRequest request) throws JOSEException {
+        UserEntity dbUser = repo.findByEmail(request.getEmail());
+        if (dbUser ==null) {
+            System.out.println("db에 user를 찾을 수 없습니다.");
+            return null;
+        }
+        if (security.passwordEncoder().matches(request.getPassword(), dbUser.getPassword())) {
+//       로그인 성공
+//       완료 페이지가 어떻게 될지 몰라서 이메일만 보냄
+            System.out.println("로그인 성공");
+         return ResponseEntity.ok(jwt.createTokenPair(dbUser.getEmail()));
+
+        }
+        System.out.println("알 수 없는 오류");
+        return null;
+    }
+
+    public ResponseCookie logout() {
+//        엑세스 토큰 삭제
+        return jwt.deleteToken();
+    }
+
+    public ResponseEntity<?> refreshToken(String refreshTokenCookie) {
+    // 엑세스 토큰 리프레시
+        try {
+            if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
+                throw new IllegalArgumentException("Refresh Token이 존재하지 않습니다.");
+            }
+
+            // 서명 검증 및 만료 여부 확인
+            JwtConfig.RefreshTokenValidationResult result = jwt.validateRefreshTokenWithExpirationCheck(refreshTokenCookie);
+            String email = result.email();
+
+            // 1) Refresh Token이 만료된 경우 -> 두 토큰 모두 재발급 후 쿠키 업데이트
+            if (result.isExpired()) {
+                JwtConfig.TokenResponse newTokenPair = jwt.createTokenPair(email);
+                ResponseCookie newCookie = jwt.createRefreshTokenCookie(newTokenPair.refreshToken());
+
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, newCookie.toString())
+                        .body(Map.of(
+                                "accessToken", newTokenPair.accessToken(),
+                                "message", "Refresh Token이 만료되어 전체 토큰이 재발급되었습니다."
+                        ));
+            }
+
+            // 2) Refresh Token이 만료되지 않고 유효한 경우 -> Access Token만 재발급
+            String newAccessToken = jwt.createAccessToken(email);
+            return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+
+        } catch (Exception e) {
+            // 서명이 조작되었거나 올바르지 않은 타입일 경우 쿠키 삭제 후 에러 반환
+            ResponseCookie deleteCookie = jwt.deleteToken();
+            return ResponseEntity.badRequest()
+                    .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void createEmailForm(String toEmail,
+                                        String title,
+                                        String text) throws MessagingException {
+        MimeMessage message = emailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+        helper.setTo(toEmail);
+        helper.setSubject(title);
+        helper.setText(text,true);
+        emailSender.send(message);
+    }
+
+
+
+    public ResponseEntity emailVerificationConfirm(MailRequest request) {
+//        이메일 인증번호 확인
+        if(System.currentTimeMillis() > (long)session.getAttribute(EXPIRES_AT_KEY)){
+            clearVerification(session);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String verifiedEmail = (String)session.getAttribute(EMAIL_KEY);
+        Integer verifiedCode = (Integer)session.getAttribute(CODE_KEY);
+        if (    verifiedEmail.equals(request.getEmail()) &&
+                verifiedCode.equals(request.getAuthCode())){
+            return ResponseEntity.ok().build();
+        }
+        System.out.println(verifiedEmail);
+        System.out.println(verifiedCode);
+        System.out.println(request.getEmail());
+        System.out.println(request.getAuthCode());
+        System.out.println(request);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    public void changePassword(UserRequest request) {
+        UserEntity user = repo.findByEmail(request.getEmail());
+        user.setPassword(security.passwordEncoder().encode(request.getPassword()));
+        repo.save(user);
+    }
+
+    public void sendCodeToEmail(String email) {
+        // 확인코드 담긴 이메일 발송
+        String title = "Waylog 이메일 인증 번호";
+        Random random = new Random();
+        int checkNum = random.nextInt(888888) + 111111;
+        String content =
+                "<!DOCTYPE html>"
+                        + "<html>"
+                        + "<head><meta charset='UTF-8'></head>"
+                        + "<body style='margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;'>"
+                        + "  <table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='background-color: #f4f6f8; padding: 40px 0;'>"
+                        + "    <tr>"
+                        + "      <td align='center'>"
+                        + "        <table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='max-width: 500px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden;'>"
+                        // 브랜드 헤더
+                        + "          <tr>"
+                        + "            <td style='background-color: #2563eb; padding: 24px; text-align: center;'>"
+                        + "              <h1 style='color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;'>Waylog</h1>"
+                        + "            </td>"
+                        + "          </tr>"
+                        // 본문 콘텐츠
+                        + "          <tr>"
+                        + "            <td style='padding: 40px 32px; text-align: center;'>"
+                        + "              <h2 style='color: #1e293b; margin: 0 0 12px 0; font-size: 20px; font-weight: 600;'>이메일 인증 번호</h2>"
+                        + "              <p style='color: #64748b; margin: 0 0 28px 0; font-size: 14px; line-height: 1.5;'>Waylog를 이용해 주셔서 감사합니다.<br>아래의 인증 번호를 홈페이지 인증 창에 입력해 주세요.</p>"
+                        // 인증코드 강조 박스
+                        + "              <div style='background-color: #f1f5f9; border-radius: 8px; padding: 16px 24px; display: inline-block; margin-bottom: 24px;'>"
+                        + "                <span style='color: #2563eb; font-size: 32px; font-weight: 800; letter-spacing: 6px; font-family: monospace;'>" + checkNum + "</span>"
+                        + "              </div>"
+                        + "              <p style='color: #ef4444; margin: 0; font-size: 13px; font-weight: 500;'>※ 본 인증번호는 3분 동안만 유효합니다.</p>"
+                        + "            </td>"
+                        + "          </tr>"
+                        // 푸터
+                        + "          <tr>"
+                        + "            <td style='background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; text-align: center;'>"
+                        + "              <p style='color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.5;'>본 메일은 발신 전용 메일이므로 회신되지 않습니다.<br>© Waylog. All rights reserved.</p>"
+                        + "            </td>"
+                        + "          </tr>"
+                        + "        </table>"
+                        + "      </td>"
+                        + "    </tr>"
+                        + "  </table>"
+                        + "</body>"
+                        + "</html>";
+        try {
+            createEmailForm(email, title, content);
+            // 인증번호 관련 정보를 세션에 저장
+            session.setAttribute(EMAIL_KEY, email);
+            session.setAttribute(CODE_KEY, checkNum);
+            session.setAttribute(
+                    EXPIRES_AT_KEY,
+                    System.currentTimeMillis() + authCodeExpiration
+            );
+            // 인증번호를 다시 발급하면 이전 인증 완료 상태를 해제
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 또는 로거를 사용하여 상세한 예외 정보 로깅
+            throw new RuntimeException("Unable to send email in sendCodeToEmail", e); // 원인 예외를 포함시키기
+        }
+    }
+    public void clearVerification(
+            HttpSession session
+    ) {
+        session.removeAttribute(EMAIL_KEY);
+        session.removeAttribute(CODE_KEY);
+        session.removeAttribute(EXPIRES_AT_KEY);
+    }
+
+}
+
