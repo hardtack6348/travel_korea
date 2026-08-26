@@ -1,0 +1,43 @@
+package kr.co.mycom.travel_korea.tour.client;
+
+/**
+ * WayLog 서비스 계층과 외부 TourAPI 호출 계층 사이의 인터페이스입니다.
+ *
+ * 현재는 목록 조회만 정의합니다. 검색과 상세 조회는 목록 기능이
+ * 정상적으로 동작한 뒤 메서드를 추가합니다.
+ *
+ * 팀원 A는 이 인터페이스를 구현한 실제 TourAPI Client를 작성합니다.
+ */
+
+
+
+public interface TourApiClient {
+    /**
+     * 지역 및 콘텐츠 유형을 기준으로 관광정보 목록을 조회합니다.
+     *
+     * @param page 페이지 번호
+     * @param size 페이지당 결과 개수
+     * @param areaCode 지역 코드
+     * @param sigunguCode 시군구 코드
+     * @param contentTypeId 콘텐츠 유형 코드
+     * @param arrange 정렬 기준
+     * @return TourAPI 목록 조회 결과
+     */
+
+    TourApiResponse getAreaBasedList(
+            int page,
+            int size,
+            Integer areaCode,
+            Integer sigunguCode,
+            Integer contentTypeId,
+            String arrange
+    );
+
+    // TODO(팀원 A): 실제 TourAPI의 searchKeyword2 호출 메서드 추가
+    // TourApiResponse searchKeyword(...);
+
+    // TODO(팀원 A): 실제 TourAPI의 detailCommon2 호출 메서드 추가
+    // TourApiDetailCommonItem getDetailCommon(...);
+
+
+}
