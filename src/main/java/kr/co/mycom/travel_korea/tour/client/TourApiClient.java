@@ -1,6 +1,10 @@
 package kr.co.mycom.travel_korea.tour.client;
 
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
+
+import java.util.List;
 
 /**
  * WayLog 서비스 계층과 외부 TourAPI 호출 계층 사이의 인터페이스입니다.
@@ -35,6 +39,25 @@ public interface TourApiClient {
             String arrange
     );
 
+    /**
+     * 여행코스 소개정보를 조회합니다.
+     *
+     * @param contentId 여행코스 콘텐츠 ID
+     * @return 코스 소요시간, 일정, 테마
+     */
+    TourApiCourseIntroItem getCourseIntro(
+            String contentId
+    );
+
+    /**
+     * 여행코스의 경유지 목록을 조회합니다.
+     *
+     * @param contentId 여행코스 콘텐츠 ID
+     * @return 순서가 적용된 경유지 목록
+     */
+    List<TourApiCourseDetailItem> getCourseDetails(
+            String contentId
+    );
     // TODO(팀원 A): 실제 TourAPI의 searchKeyword2 호출 메서드 추가
     // TourApiResponse searchKeyword(...);
 
