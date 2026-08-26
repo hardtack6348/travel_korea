@@ -7,8 +7,8 @@ public record TourSummaryResponse(
         String address,
         String image,
         String thumbnail,
-        String areaCode,
-        String sigunguCode,
+        String lDongRegnCd,
+        String lDongSignguCd,
         Double latitude,
         Double longitude
 ) {

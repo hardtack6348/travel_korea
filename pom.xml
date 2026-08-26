@@ -93,6 +93,16 @@
             <version>4.2.0-M1</version>
             <scope>compile</scope>
         </dependency>
+
+
+
+        <!-- 실제 MySQL 없이 테스트할 때 사용하는 메모리 DB -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

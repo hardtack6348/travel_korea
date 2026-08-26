@@ -1,5 +1,7 @@
 package kr.co.mycom.travel_korea.tour.client;
 
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
+
 /**
  * WayLog 서비스 계층과 외부 TourAPI 호출 계층 사이의 인터페이스입니다.
  *
@@ -17,8 +19,8 @@ public interface TourApiClient {
      *
      * @param page 페이지 번호
      * @param size 페이지당 결과 개수
-     * @param areaCode 지역 코드
-     * @param sigunguCode 시군구 코드
+     * @param lDongRegnCd 지역 코드
+     * @param lDongSignguCd 시군구 코드
      * @param contentTypeId 콘텐츠 유형 코드
      * @param arrange 정렬 기준
      * @return TourAPI 목록 조회 결과
@@ -27,8 +29,8 @@ public interface TourApiClient {
     TourApiResponse getAreaBasedList(
             int page,
             int size,
-            Integer areaCode,
-            Integer sigunguCode,
+            Integer lDongRegnCd,
+            Integer lDongSignguCd,
             Integer contentTypeId,
             String arrange
     );

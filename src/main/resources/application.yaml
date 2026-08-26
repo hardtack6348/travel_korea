@@ -60,3 +60,11 @@ jwt:
   secret: QfvEunKI05ZNTFi11wTvArkScyZF1r8/vHxs7Tj8xxI=
   access-expiration: 1800000       # 30분 (1000 * 60 * 30)
   refresh-expiration: 604800000    # 7일 (1000 * 60 * 60 * 24 * 7)
+#tour-api-key: ${TOUR_API}
+tour-api:
+  base-url: https://apis.data.go.kr/B551011/KorService2
+  service-key: ${TOUR_API}
+  mobile-os: ETC
+  mobile-app: WayLog
+  connect-timeout: 3s
+  read-timeout: 5s

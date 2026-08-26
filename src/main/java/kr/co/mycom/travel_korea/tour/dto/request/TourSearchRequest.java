@@ -3,8 +3,8 @@ package kr.co.mycom.travel_korea.tour.dto.request;
 public record TourSearchRequest (
   Integer page,
   Integer size,
-  Integer areaCode,
-  Integer sigunguCode,
+  Integer lDongRegnCd,
+  Integer lDongSignguCd,
   Integer contentTypeId,
   String arrange
 ) {
