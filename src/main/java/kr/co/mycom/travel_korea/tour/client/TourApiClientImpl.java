@@ -1,9 +1,7 @@
 package kr.co.mycom.travel_korea.tour.client;
 
 import kr.co.mycom.travel_korea.tour.config.TourApiProperties;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiRawResponse;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
+import kr.co.mycom.travel_korea.tour.dto.external.*;
 import kr.co.mycom.travel_korea.tour.exception.TourApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -11,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -126,6 +125,173 @@ public class TourApiClientImpl implements TourApiClient {
         }
     }
 
+    @Override
+    public TourApiCourseIntroItem getCourseIntro(String contentId) {
+        try {
+            TourApiCourseIntroRawResponse rawResponse =
+                    tourApiRestClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/detailIntro2")
+                                    .queryParam(
+                                            "serviceKey",
+                                            properties.serviceKey()
+                                    )
+                                    .queryParam(
+                                            "MobileOS",
+                                            properties.mobileOs()
+                                    )
+                                    .queryParam(
+                                            "MobileApp",
+                                            properties.mobileApp()
+                                    )
+                                    .queryParam("_type", "json")
+                                    .queryParam("pageNo", 1)
+                                    .queryParam("numOfRows", 10)
+                                    .queryParam("contentId", contentId)
+                                    .queryParam("contentTypeId", 25)
+                                    .build()
+                            )
+                            .retrieve()
+                            .body(
+                                    TourApiCourseIntroRawResponse.class
+                            );
+            return extractCourseIntro(rawResponse);
+        } catch (TourApiException exception) {
+            throw exception;
+
+        } catch (RestClientException exception) {
+            throw new TourApiException(
+                    "여행코스 소개정보 조회에 실패했습니다.",
+                    exception
+            );
+        }
+    }
+
+
+    /**
+     * detailIntro2 원본 응답에서 첫 번째 코스 소개정보를 꺼냅니다.
+     */
+
+    /**
+     * detailIntro2 원본 응답에서 첫 번째 코스 소개정보를 꺼냅니다.
+     */
+    private TourApiCourseIntroItem extractCourseIntro(
+            TourApiCourseIntroRawResponse rawResponse
+    ) {
+        if (rawResponse == null ||
+                rawResponse.response() == null) {
+            throw new TourApiException(
+                    "EMPTY_COURSE_INTRO_RESPONSE",
+                    "여행코스 소개정보 응답이 비어 있습니다."
+            );
+        }
+
+        var response = rawResponse.response();
+        var header = response.header();
+
+        validateCourseResult(
+                header == null ? null : header.resultCode(),
+                header == null ? null : header.resultMsg()
+        );
+
+        if (response.body() == null ||
+                response.body().items() == null ||
+                response.body().items().item() == null ||
+                response.body().items().item().isEmpty()) {
+            return null;
+        }
+
+        return response.body()
+                .items()
+                .item()
+                .get(0);
+    }
+
+    @Override
+    public List<TourApiCourseDetailItem> getCourseDetails(String contentId) {
+        try {
+            TourApiCourseDetailRawResponse rawResponse =
+                    tourApiRestClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/detailInfo2")
+                                    .queryParam(
+                                            "serviceKey",
+                                            properties.serviceKey()
+                                    )
+                                    .queryParam(
+                                            "MobileOS",
+                                            properties.mobileOs()
+                                    )
+                                    .queryParam(
+                                            "MobileApp",
+                                            properties.mobileApp()
+                                    )
+                                    .queryParam("_type", "json")
+                                    .queryParam("pageNo", 1)
+                                    .queryParam("numOfRows", 20)
+                                    .queryParam("contentId", contentId)
+                                    .queryParam("contentTypeId", 25)
+                                    .build()
+                            )
+                            .retrieve()
+                            .body(
+                                    TourApiCourseDetailRawResponse.class
+                            );
+
+            return extractCourseDetails(rawResponse);
+
+        } catch (TourApiException exception) {
+            throw exception;
+
+        } catch (RestClientException exception) {
+            throw new TourApiException(
+                    "여행코스 경유지 조회에 실패했습니다.",
+                    exception
+            );
+        }
+    }
+
+
+
+    /**
+     * detailInfo2 응답에서 경유지 목록을 꺼내고
+     * subnum 순서대로 정렬합니다.
+     */
+    private List<TourApiCourseDetailItem> extractCourseDetails(
+            TourApiCourseDetailRawResponse rawResponse
+    ) {
+        if (rawResponse == null ||
+                rawResponse.response() == null) {
+            throw new TourApiException(
+                    "EMPTY_COURSE_DETAIL_RESPONSE",
+                    "여행코스 경유지 응답이 비어 있습니다."
+            );
+        }
+
+        var response = rawResponse.response();
+        var header = response.header();
+
+        validateCourseResult(
+                header == null ? null : header.resultCode(),
+                header == null ? null : header.resultMsg()
+        );
+
+        if (response.body() == null ||
+                response.body().items() == null ||
+                response.body().items().item() == null) {
+            return List.of();
+        }
+        Comparator<TourApiCourseDetailItem> courseOrder =
+                Comparator.comparing(
+                        (TourApiCourseDetailItem item) ->
+                                item.subnum(),
+                        Comparator.nullsLast(Integer::compareTo)
+                );
+
+        return response.body()
+                .items().item().stream().sorted(courseOrder).toList();
+    }
+
     /**
      * TourAPI 원본 응답을 WayLog 내부에서 사용하는 단순 응답으로 변환합니다.
      */
@@ -177,6 +343,28 @@ public class TourApiClientImpl implements TourApiClient {
 
         return new TourApiResponse(items, body.pageNo(), body.numOfRows(), body.totalCount());
     }
+    /**
+     * 코스 상세 API의 TourAPI 결과 코드를 검사합니다.
+     */
+    private void validateCourseResult(
+            String resultCode,
+            String resultMessage
+    ) {
+        if (resultCode == null) {
+            throw new TourApiException(
+                    "EMPTY_HEADER",
+                    "TourAPI 응답 헤더가 없습니다."
+            );
+        }
+
+        if (!"0000".equals(resultCode)) {
+            throw new TourApiException(
+                    resultCode,
+                    resultMessage
+            );
+        }
+    }
+
 }
 
 /**

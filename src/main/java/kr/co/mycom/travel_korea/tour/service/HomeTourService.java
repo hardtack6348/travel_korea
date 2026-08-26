@@ -27,7 +27,12 @@ public class HomeTourService {
          */
 
         List<TourSummaryResponse> destinations = tourService.getTours(1,3,null,null,12,"Q").items();
-
+        /*
+         * 추천 여행코스 3개를 조회합니다.
+         *
+         * 각 코스는 기본 목록, 소개정보, 경유지 정보를 조합합니다.
+         */
+        List<TourCourseResponse> courses = tourService.getRecommendedCourses(3);
         /*
          * 1 : 첫 번째 페이지
          * 3 : 데이터 3개
@@ -42,7 +47,7 @@ public class HomeTourService {
          * 추천 여행지 연결이 성공한 뒤 하나씩 추가합니다.
          */
 
-        return new HomeTourResponse(destinations, List.of(), List.of(), List.of());
+        return new HomeTourResponse(destinations, courses, List.of(), List.of());
     }
 
 //    private List<TourEnjoyResponse> getEnjoyItems() {

@@ -1,5 +1,7 @@
 package kr.co.mycom.travel_korea.tour.client;
 
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
 import org.springframework.context.annotation.Profile;
@@ -86,6 +88,45 @@ public class MockTourApiClient implements TourApiClient {
                 page,
                 size,
                 items.size()
+        );
+    }
+
+    @Override
+    public TourApiCourseIntroItem getCourseIntro(String contentId) {
+        return new TourApiCourseIntroItem(
+                contentId,
+                "25",
+                "약 20km",
+                "관광안내소",
+                "당일 코스",
+                "약 5시간",
+                "지역의 주요 관광지를 둘러보는 코스"
+        );
+    }
+
+    @Override
+    public List<TourApiCourseDetailItem> getCourseDetails(String contentId) {
+        return List.of(
+                new TourApiCourseDetailItem(
+                        contentId,
+                        "25",
+                        "mock-1",
+                        null,
+                        null,
+                        "첫 번째 경유지입니다.",
+                        "첫 번째 장소",
+                        0
+                ),
+                new TourApiCourseDetailItem(
+                        contentId,
+                        "25",
+                        "mock-2",
+                        null,
+                        null,
+                        "두 번째 경유지입니다.",
+                        "두 번째 장소",
+                        1
+                )
         );
     }
 }
