@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TourController {
     private final TourService service;
-    @GetMapping("/")
+    @GetMapping()
     public TourListResponse getTours(@ModelAttribute TourSearchRequest request){
         return service.getTours(
                 request.page(),
