@@ -6,7 +6,8 @@ public record TourSearchRequest (
   Integer lDongRegnCd,
   Integer lDongSignguCd,
   Integer contentTypeId,
-  String arrange
+  String arrange,
+  String regionGroup
 ) {
     public TourSearchRequest {
         page = page == null ? 1 : page;
@@ -32,6 +33,12 @@ public record TourSearchRequest (
             throw new IllegalArgumentException(
                     "lDongSignguCd를 사용하려면 " +
                             "lDongRegnCd가 필요합니다."
+            );
+        }
+
+        if (lDongRegnCd != null && regionGroup != null && !regionGroup.isBlank()) {
+            throw new IllegalArgumentException(
+                    "lDongRegnCd와 regionGroup은 동시에 사용할 수 없습니다."
             );
         }
     }

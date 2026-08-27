@@ -3,6 +3,8 @@ package kr.co.mycom.travel_korea.tour.client;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiRegionItem;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalResponse;
 
 import java.util.List;
 
@@ -57,6 +59,17 @@ public interface TourApiClient {
      */
     List<TourApiCourseDetailItem> getCourseDetails(
             String contentId
+    );
+
+    List<TourApiRegionItem> getRegionCodes(Integer lDongRegnCd);
+
+    TourApiFestivalResponse getFestivals(
+            int page,
+            int size,
+            Integer lDongRegnCd,
+            String eventStartDate,
+            String eventEndDate,
+            String arrange
     );
     // TODO(팀원 A): 실제 TourAPI의 searchKeyword2 호출 메서드 추가
     // TourApiResponse searchKeyword(...);

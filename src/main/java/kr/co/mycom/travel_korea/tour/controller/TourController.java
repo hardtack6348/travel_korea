@@ -18,6 +18,16 @@ public class TourController {
 
     @GetMapping("/search")
     public TourListResponse getTours(@ModelAttribute TourSearchRequest request){
+        if (request.regionGroup() != null && !request.regionGroup().isBlank()) {
+            return service.getToursByRegionGroup(
+                    request.page(),
+                    request.size(),
+                    request.regionGroup(),
+                    request.contentTypeId(),
+                    request.arrange()
+            );
+        }
+
         return service.getTours(
                 request.page(),
                 request.size(),

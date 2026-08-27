@@ -4,10 +4,13 @@ import kr.co.mycom.travel_korea.tour.config.TourApiProperties;
 import kr.co.mycom.travel_korea.tour.dto.external.*;
 import kr.co.mycom.travel_korea.tour.exception.TourApiException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Comparator;
 import java.util.List;
@@ -19,6 +22,7 @@ import java.util.List;
  * TourApiClient 인터페이스만 사용합니다.
  */
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 @Profile("!local-mock") // 1번
@@ -112,16 +116,168 @@ public class TourApiClientImpl implements TourApiClient {
             return convertResponse(rawResponse);
         } catch (TourApiException exception) {
             /*
-             * 아래 convertResponse에서 만든 TourApiException은
-             * 그대로 상위 계층으로 전달합니다.
+             * TourAPI가 HTTP 200으로 응답했지만
+             * resultCode가 정상 코드가 아닌 경우입니다.
              */
+            log.error(
+                    "TourAPI 업무 오류가 발생했습니다. errorCode={}, message={}",
+                    exception.getErrorCode(),
+                    exception.getMessage()
+            );
             throw exception;
+        } catch (RestClientResponseException exception) {
+            /*
+             * TourAPI가 400, 401, 403, 429, 500 등의
+             * HTTP 오류 상태를 반환한 경우입니다.
+             *
+             * 서비스키가 포함된 전체 요청 URL은
+             * 보안상 로그에 출력하지 않습니다.
+             */
+            log.error(
+                    "TourAPI HTTP 오류가 발생했습니다. " +
+                            "status={}, responseBody={}",
+                    exception.getStatusCode(),
+                    exception.getResponseBodyAsString(),
+                    exception
+            );
+
+            if (exception.getStatusCode().value() == 429) {
+                throw new TourApiException(
+                        "TOUR_API_RATE_LIMIT_EXCEEDED",
+                        "TourAPI 일일 호출 한도를 초과했습니다."
+                );
+            }
+
+            throw new TourApiException(
+                    "TOUR_API_HTTP_ERROR",
+                    "TourAPI가 HTTP 오류를 반환했습니다. " +
+                            "status = " + exception.getStatusCode()
+            );
+        } catch (ResourceAccessException exception) {
+            /*
+             * 연결 실패, 연결 시간 초과 또는
+             * 응답 대기 시간 초과인 경우입니다.
+             */
+            log.error(
+                    "TourAPI 연결 또는 타임아웃 오류가 발생했습니다. message={}",
+                    exception.getMessage(),
+                    exception
+            );
+
+            throw new TourApiException(
+                    "TOUR_API_TIMEOUT",
+                    "TourAPI 연결 또는 응답 시간이 초과되었습니다."
+            );
+
+
         } catch (RestClientException exception) {
             /*
-             * HTTP 오류, 타임아웃, JSON 변환 오류 등을
-             * WayLog의 TourApiException으로 변환합니다.
+             * 응답 JSON 변환 실패 등 나머지 RestClient 오류입니다.
              */
-            throw new TourApiException("TourAPI 관광정보 조회에 실패했습니다.", exception);
+            log.error(
+                    "TourAPI 응답 처리 중 오류가 발생했습니다. type={}, message={}",
+                    exception.getClass().getName(),
+                    exception.getMessage(),
+                    exception
+            );
+
+            throw new TourApiException(
+                    "TOUR_API_RESPONSE_ERROR",
+                    "TourAPI 응답을 처리하지 못했습니다."
+            );
+        }
+    }
+
+    @Override
+    public List<TourApiRegionItem> getRegionCodes(Integer lDongRegnCd) {
+        try {
+            TourApiRegionRawResponse rawResponse = tourApiRestClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/ldongCode2")
+                                .queryParam("serviceKey", properties.serviceKey())
+                                .queryParam("MobileOS", properties.mobileOs())
+                                .queryParam("MobileApp", properties.mobileApp())
+                                .queryParam("_type", "json")
+                                .queryParam("pageNo", 1)
+                                .queryParam("numOfRows", 100);
+                        if (lDongRegnCd != null) {
+                            builder.queryParam("lDongRegnCd", lDongRegnCd);
+                        }
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(TourApiRegionRawResponse.class);
+
+            if (rawResponse == null || rawResponse.response() == null) {
+                throw new TourApiException("EMPTY_REGION_RESPONSE", "지역 코드 응답이 비어 있습니다.");
+            }
+            var response = rawResponse.response();
+            validateCourseResult(
+                    response.header() == null ? null : response.header().resultCode(),
+                    response.header() == null ? null : response.header().resultMsg()
+            );
+            if (response.body() == null || response.body().items() == null ||
+                    response.body().items().item() == null) {
+                return List.of();
+            }
+            return response.body().items().item();
+        } catch (TourApiException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw convertCommunicationException("지역 코드", exception);
+        }
+    }
+
+    @Override
+    public TourApiFestivalResponse getFestivals(
+            int page,
+            int size,
+            Integer lDongRegnCd,
+            String eventStartDate,
+            String eventEndDate,
+            String arrange
+    ) {
+        try {
+            TourApiFestivalRawResponse rawResponse = tourApiRestClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/searchFestival2")
+                                .queryParam("serviceKey", properties.serviceKey())
+                                .queryParam("MobileOS", properties.mobileOs())
+                                .queryParam("MobileApp", properties.mobileApp())
+                                .queryParam("_type", "json")
+                                .queryParam("pageNo", page)
+                                .queryParam("numOfRows", size)
+                                .queryParam("arrange", arrange)
+                                .queryParam("eventStartDate", eventStartDate)
+                                .queryParam("eventEndDate", eventEndDate);
+                        if (lDongRegnCd != null) {
+                            builder.queryParam("lDongRegnCd", lDongRegnCd);
+                        }
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(TourApiFestivalRawResponse.class);
+
+            if (rawResponse == null || rawResponse.response() == null) {
+                throw new TourApiException("EMPTY_FESTIVAL_RESPONSE", "축제 응답이 비어 있습니다.");
+            }
+            var response = rawResponse.response();
+            validateCourseResult(
+                    response.header() == null ? null : response.header().resultCode(),
+                    response.header() == null ? null : response.header().resultMsg()
+            );
+            if (response.body() == null) {
+                return new TourApiFestivalResponse(List.of(), page, size, 0);
+            }
+            var body = response.body();
+            var items = body.items() == null || body.items().item() == null
+                    ? List.<TourApiFestivalItem>of()
+                    : body.items().item();
+            return new TourApiFestivalResponse(items, body.pageNo(), body.numOfRows(), body.totalCount());
+        } catch (TourApiException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw convertCommunicationException("축제", exception);
         }
     }
 
@@ -363,6 +519,21 @@ public class TourApiClientImpl implements TourApiClient {
                     resultMessage
             );
         }
+    }
+
+    /** 신규 API도 목록 API와 동일하게 429를 구분해 전달합니다. */
+    private TourApiException convertCommunicationException(
+            String target,
+            RestClientException exception
+    ) {
+        if (exception instanceof RestClientResponseException responseException &&
+                responseException.getStatusCode().value() == 429) {
+            return new TourApiException(
+                    "TOUR_API_RATE_LIMIT_EXCEEDED",
+                    "TourAPI 일일 호출 한도를 초과했습니다."
+            );
+        }
+        return new TourApiException(target + " 정보 조회에 실패했습니다.", exception);
     }
 
 }

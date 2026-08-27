@@ -1,14 +1,16 @@
 package kr.co.mycom.travel_korea.tour.service;
 
 import kr.co.mycom.travel_korea.tour.client.TourApiClient;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.response.TourCourseResponse;
 import kr.co.mycom.travel_korea.tour.dto.response.TourListResponse;
 import kr.co.mycom.travel_korea.tour.mapper.TourMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Comparator;
 
 /**
  * WayLog 관광정보 조회 기능의 비즈니스 로직을 담당합니다.
@@ -20,11 +22,27 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class TourService {
+    private static final Map<String, List<Integer>> REGION_GROUPS = Map.of(
+            "gyeonggi-incheon", List.of(41, 28),
+            "chungcheong", List.of(43, 44, 30, 36110),
+            "jeolla", List.of(12, 52),
+            "gyeongsang", List.of(47, 48, 26, 27, 31)
+    );
     private final TourApiClient tourApiClient;
     private final TourMapper tourMapper;
 
 
     // 관광정보 목록을 조회하고 WayLog 응답 형식으로 변환
+    @Cacheable(
+            cacheNames = "tourLists",
+            key = "#page + ':' +" +
+                    "#size + ':' +" +
+                    "#lDongRegnCd + ':' +" +
+                    "#lDongSignguCd + ':' +" +
+                    "#contentTypeId + ':' +" +
+                    "#arrange",
+            sync = true
+    )
     public TourListResponse getTours(int page, int size, Integer lDongRegnCd, Integer lDongSignguCd, Integer contentTypeId, String arrange) {
 
         validateRequest(page, size, lDongRegnCd, lDongSignguCd);
@@ -36,6 +54,62 @@ public class TourService {
                 response.pageNo(),
                 response.numOfRows(),
                 response.totalCount()
+        );
+    }
+
+    /**
+     * 경기·인천처럼 여러 광역지역을 하나의 화면 권역으로 묶어 조회합니다.
+     * 권역별 결과는 캐시되며, 합친 뒤 요청 정렬과 페이지 범위를 적용합니다.
+     */
+    @Cacheable(
+            cacheNames = "tourLists",
+            key = "'group:' + #regionGroup + ':' + #page + ':' + #size + ':' + #contentTypeId + ':' + #arrange",
+            sync = true
+    )
+    public TourListResponse getToursByRegionGroup(
+            int page,
+            int size,
+            String regionGroup,
+            Integer contentTypeId,
+            String arrange
+    ) {
+        validateRequest(page, size, null, null);
+        List<Integer> regionCodes = REGION_GROUPS.get(regionGroup);
+        if (regionCodes == null) {
+            throw new IllegalArgumentException("지원하지 않는 regionGroup입니다: " + regionGroup);
+        }
+
+        /* 각 지역에서 현재 페이지까지 필요한 수만 조회해 합친 뒤 페이지를 자릅니다. */
+        int fetchSize = Math.min(page * size, 100);
+        var responses = regionCodes.stream()
+                .map(code -> tourApiClient.getAreaBasedList(
+                        1, fetchSize, code, null, contentTypeId, arrange
+                ))
+                .toList();
+
+        Comparator<kr.co.mycom.travel_korea.tour.dto.external.TourApiItem> comparator =
+                Comparator.comparing(
+                        item -> item.title() == null ? "" : item.title(),
+                        String.CASE_INSENSITIVE_ORDER
+                );
+        if (!"A".equalsIgnoreCase(arrange)) {
+            /* 수정일 필드는 현재 DTO에 없으므로 TourAPI가 준 지역별 순서를 최대한 보존합니다. */
+            comparator = (left, right) -> 0;
+        }
+
+        var merged = responses.stream()
+                .flatMap(response -> response.items().stream())
+                .sorted(comparator)
+                .toList();
+        int from = Math.min((page - 1) * size, merged.size());
+        int to = Math.min(from + size, merged.size());
+        int totalCount = responses.stream().mapToInt(response -> response.totalCount()).sum();
+
+        return new TourListResponse(
+                merged.subList(from, to).stream().map(tourMapper::toSummary).toList(),
+                page,
+                size,
+                totalCount
         );
     }
 
@@ -60,6 +134,12 @@ public class TourService {
      * 먼저 areaBasedList2에서 여행코스 기본정보를 조회한 뒤,
      * 각 코스의 detailIntro2와 detailInfo2를 추가로 조회합니다.
      */
+
+    @Cacheable(
+            cacheNames = "recommendedCourses",
+            key = "#size",
+            sync = true
+    )
     public List<TourCourseResponse> getRecommendedCourses(
             int size
     ) {
@@ -82,28 +162,6 @@ public class TourService {
         return courseList.items()
                 .stream()
                 .map(item -> {
-                    var intro = tourApiClient.getCourseIntro(
-                            item.contentid()
-                    );
-
-                    var details = tourApiClient.getCourseDetails(
-                            item.contentid()
-                    );
-
-                    /*
-                     * detailInfo2의 subname을 화면의 경유지 목록으로 변환합니다.
-                     *
-                     * 현재 카드 디자인은 최대 4개의 경유지를 표시하므로
-                     * 앞에서부터 4개만 사용합니다.
-                     */
-                    List<String> stops = details.stream()
-                            .map(detail -> detail.subname())
-                            .filter(name ->
-                                    name != null &&
-                                            !name.isBlank()
-                            )
-                            .limit(4)
-                            .toList();
 
                     return new TourCourseResponse(
                             item.contentid(),
@@ -118,58 +176,15 @@ public class TourService {
                              * taketime이 없을 경우 다른 코스 정보를 이용해
                              * 대체 일정을 생성합니다.
                              */
-                            makeCourseDuration(intro, stops),
-                            makeCourseDescription(intro),
-                            stops
+                            "상세 일정 확인",
+                            null,
+                            List.of()
                     );
                 })
                 .toList();
     }
 
-    /**
-     * 코스 소요시간 정보를 생성합니다.
-     *
-     * taketime이 있으면 해당 값을 사용하고,
-     * 없으면 distance 또는 경유지 개수를 이용한
-     * 대체 문구를 반환합니다.
-     */
-    private String makeCourseDuration(TourApiCourseIntroItem intro, List<String> stops) {
-        /*
-         * detailIntro2 결과가 존재하면
-         * 실제 소요시간을 가장 먼저 확인합니다.
-         */
-        if (intro != null) {
-            String takeTime = emptyToNull(intro.taketime());
 
-            if (takeTime != null) {
-                return takeTime;
-            }
-
-            /*
-             * 소요시간은 없지만 코스 거리가 있다면
-             * 거리 정보를 대신 표시합니다.
-             */
-
-            String distance = emptyToNull(intro.distance());
-
-            if (distance != null) {
-                return "코스 " + distance;
-            }
-        }
-
-        /*
-         * 소요시간과 거리 정보가 모두 없지만
-         * 경유지가 있다면 코스 장소 개수를 표시합니다.
-         */
-        if (stops != null && !stops.isEmpty()) {
-            return "주요 장소" + stops.size() + "곳";
-        }
-
-        /*
-         * 사용할 수 있는 정보가 전혀 없는 경우입니다.
-         */
-        return "상세 일정 확인";
-    }
 
     /**
      * 여러 이미지 중 처음으로 값이 있는 이미지를 선택합니다.
@@ -203,106 +218,4 @@ public class TourService {
         return address.split("\\s+")[0];
     }
 
-    /**
-     * TourAPI 코스 소개정보를 이용해
-     * 메인 카드에 표시할 설명을 생성합니다.
-     *
-     * theme을 우선 사용하지만,
-     * '지자체'와 같은 관리용 문구는 제외합니다.
-     *
-     * theme을 사용할 수 없으면 schedule을 사용하고,
-     * 둘 다 없으면 null을 반환합니다.
-     */
-    private String makeCourseDescription(
-            TourApiCourseIntroItem intro
-    ) {
-        if (intro == null) {
-            return null;
-        }
-
-        /*
-         * theme 값에서 앞뒤 공백을 제거하고
-         * 화면에 표시해도 되는 내용인지 검사합니다.
-         */
-
-        String theme = emptyToNull(intro.theme());
-
-        if (isUsableCourseDescription(theme)) {
-            return theme.trim();
-        }
-
-        /*
-         * theme을 사용할 수 없다면
-         * 코스 일정 설명인 schedule을 대신 사용합니다.
-         */
-
-        String schedule = emptyToNull(intro.schedule());
-
-        if (isUsableCourseDescription(schedule)) {
-            return schedule.trim();
-        }
-
-        /*
-         * theme과 schedule이 모두 없거나
-         * 관리용 문구라면 null을 반환합니다.
-         *
-         * 프론트엔드에서는 null일 때
-         * 기본 안내 문구를 표시합니다.
-         */
-        return null;
-    }
-
-    /**
-     * 코스 설명을 사용자 화면에 표시할 수 있는지 검사합니다.
-     *
-     * TourAPI에서 내려오는 구분선과 관리용 표현을 제거한 뒤
-     * 실제 설명이 남아 있는지 확인합니다.
-     */
-    private boolean isUsableCourseDescription(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-
-        /*
-         * 하이픈, 밑줄, 공백을 제거해
-         * 실제 텍스트 내용만 비교합니다.
-         *
-         * 예:
-         * "----지자체----" -> "지자체"
-         */
-
-        String normalized = value
-                .replace("-", "")
-                .replace("_", "")
-                .replaceAll("\\s+", "")
-                .trim();
-
-        if (normalized.isBlank()) {
-            return false;
-        }
-
-        /*
-         * 사용자에게 의미가 없는 관리용 값을 제외합니다.
-         */
-        return !normalized.equals("지자체")
-                && !normalized.equals("기타")
-                && !normalized.equals("없음");
-    }
-
-    /**
-     * 빈 문자열을 null로 변환합니다.
-     */
-    private String emptyToNull(String value) {
-        return value == null || value.isBlank()
-                ? null
-                : value;
-    }
-    // TODO(본인):
-    // 검색 기능을 추가할 때 searchTours() 메서드를 구현합니다.
-
-    // TODO(본인):
-    // 상세 기능을 추가할 때 getTourDetail() 메서드를 구현합니다.
-
-    // TODO(팀원 A):
-    // TourAPI 오류는 TourApiException으로 변환해 Client에서 전달해 주세요.
 }

@@ -4,6 +4,9 @@ import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiItem;
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiRegionItem;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalItem;
+import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalResponse;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -128,5 +131,39 @@ public class MockTourApiClient implements TourApiClient {
                         1
                 )
         );
+    }
+
+    @Override
+    public List<TourApiRegionItem> getRegionCodes(Integer lDongRegnCd) {
+        if (lDongRegnCd == null) {
+            return List.of(
+                    new TourApiRegionItem("11", null, "서울", null),
+                    new TourApiRegionItem("26", null, "부산", null),
+                    new TourApiRegionItem("50", null, "제주", null)
+            );
+        }
+        if (lDongRegnCd == 11) {
+            return List.of(
+                    new TourApiRegionItem("11", "440", "서울", "마포구"),
+                    new TourApiRegionItem("11", "215", "서울", "광진구")
+            );
+        }
+        return List.of(new TourApiRegionItem(
+                String.valueOf(lDongRegnCd), "100", "선택 지역", "중심 지역"
+        ));
+    }
+
+    @Override
+    public TourApiFestivalResponse getFestivals(
+            int page, int size, Integer lDongRegnCd,
+            String eventStartDate, String eventEndDate, String arrange
+    ) {
+        var item = new TourApiFestivalItem(
+                "mock-festival-1", "15", "WayLog 지역 축제",
+                "서울특별시 종로구", null, null, null,
+                "11", "110", "126.97", "37.57",
+                eventStartDate, eventEndDate
+        );
+        return new TourApiFestivalResponse(List.of(item), page, size, 1);
     }
 }

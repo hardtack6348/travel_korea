@@ -2,6 +2,7 @@ package kr.co.mycom.travel_korea.tour.service;
 
 import kr.co.mycom.travel_korea.tour.dto.response.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,6 +18,11 @@ import java.util.List;
 public class HomeTourService {
     private final TourService tourService;
 
+    @Cacheable(
+            cacheNames = "homeTours",
+            key = "'home'",
+            sync = true
+    )
     public HomeTourResponse getHomeTours() {
         /*
          * 추천 여행지는 관광지 contentTypeId=12 중 3개를 조회합니다.
@@ -37,13 +43,23 @@ public class HomeTourService {
         List<TourCourseResponse> courses = tourService.getRecommendedCourses(3);
 
         /*
+         * 축제를 한 번만 조회합니다.
+         */
+        List<TourSummaryResponse> festivalItems =
+                tourService.getTours(
+                        1, 5,
+                        null, null,
+                        15, "Q"
+                ).items();
+
+        /*
          * 축제, 레포츠, 음식점, 쇼핑, 숙박 유형에서
          * 대표 콘텐츠 한 개씩 조회합니다.
          */
 
-        List<TourEnjoyResponse> enjoyItems = getEnjoyItems();
+        List<TourEnjoyResponse> enjoyItems = getEnjoyItems(festivalItems);
 
-        List<TourFestivalResponse> festivals = getFestivals();
+        List<TourFestivalResponse> festivals = getFestivals(festivalItems);
 
         return new HomeTourResponse(destinations, courses, enjoyItems, festivals);
     }
@@ -60,7 +76,7 @@ public class HomeTourService {
      * @return 축제, 레포츠, 음식점, 쇼핑, 숙박 데이터 목록
      */
 
-    private List<TourEnjoyResponse> getEnjoyItems() {
+    private List<TourEnjoyResponse> getEnjoyItems(List<TourSummaryResponse> festivalItems) {
         List<TourEnjoyResponse> result = new ArrayList<>();
 
         /*
@@ -73,13 +89,36 @@ public class HomeTourService {
          * 32 = 숙박
          */
 
-        addEnjoyItem(result, 15, "축제·행사", 5);
+        addExistingEnjoyItems(
+                result,
+                festivalItems,
+                "축제·행사"
+        );
+
         addEnjoyItem(result, 28, "레포츠", 5);
         addEnjoyItem(result, 39, "음식점", 5);
         addEnjoyItem(result, 38, "쇼핑", 5);
         addEnjoyItem(result, 32, "숙박", 5);
 
         return result;
+    }
+
+    private void addExistingEnjoyItems(List<TourEnjoyResponse> result, List<TourSummaryResponse> items, String category) {
+        result.addAll(
+                items.stream()
+                        .map(item -> new TourEnjoyResponse(
+                                item.contentId(),
+                                item.contentTypeId(),
+                                category,
+                                firstNonBlank(
+                                        item.image(),
+                                        item.thumbnail()
+                                ),
+                                item.title(),
+                                item.address()
+                        ))
+                        .toList()
+        );
     }
 
     /**
@@ -147,7 +186,7 @@ public class HomeTourService {
      * @return 메인 화면에 표시할 축제 목록
      */
 
-    private List<TourFestivalResponse> getFestivals() {
+    private List<TourFestivalResponse> getFestivals(List<TourSummaryResponse> festivalItems) {
         /*
          * getTours()의 반환 타입은 List가 아니라 TourListResponse입니다.
          *
