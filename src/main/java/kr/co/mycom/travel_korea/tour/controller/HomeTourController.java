@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
  * WayLog 메인 페이지에서 사용하는 API입니다.
  */
 @RestController
-@RequestMapping("/api/home")
+@RequestMapping("/api/v1/home")
 @RequiredArgsConstructor
 public class HomeTourController {
 
