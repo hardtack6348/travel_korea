@@ -11,11 +11,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/tours")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class TourController {
     private final TourService service;
-    @GetMapping()
+
+    @GetMapping("/search")
     public TourListResponse getTours(@ModelAttribute TourSearchRequest request){
         return service.getTours(
                 request.page(),
