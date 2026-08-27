@@ -6,14 +6,10 @@ package kr.co.mycom.travel_korea.tour.dto.response;
 
 public record TourFestivalResponse(
         String contentId,
-        String contentTypeId,
-        String image,
         String title,
+        String image,
+        String address,
         String startDate,
-        String endDate,
-        String location
+        String endDate
 ) {
-    // TODO(팀원 A):
-    // 축제 검색 API의 eventstartdate, eventenddate를 연결해 주세요.
-
 }
