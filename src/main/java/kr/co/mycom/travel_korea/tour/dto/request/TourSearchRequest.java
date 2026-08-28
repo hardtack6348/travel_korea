@@ -7,7 +7,9 @@ public record TourSearchRequest (
   Integer lDongSignguCd,
   Integer contentTypeId,
   String arrange,
-  String regionGroup
+  String regionGroup,
+  String lclsSystm1,
+  String lclsSystm2
 ) {
     public TourSearchRequest {
         page = page == null ? 1 : page;

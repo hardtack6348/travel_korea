@@ -54,6 +54,23 @@ public class TourApiClientImpl implements TourApiClient {
             Integer contentTypeId,
             String arrange
     ) {
+        return getAreaBasedList(
+                page, size, lDongRegnCd, lDongSignguCd,
+                contentTypeId, arrange, null, null
+        );
+    }
+
+    @Override
+    public TourApiResponse getAreaBasedList(
+            int page,
+            int size,
+            Integer lDongRegnCd,
+            Integer lDongSignguCd,
+            Integer contentTypeId,
+            String arrange,
+            String lclsSystm1,
+            String lclsSystm2
+    ) {
         try {
             /*
              * RestClient를 이용해 areaBasedList2를 GET 방식으로 호출합니다.
@@ -104,6 +121,15 @@ public class TourApiClientImpl implements TourApiClient {
                         if (contentTypeId != null) {
                             builder.queryParam("contentTypeId", contentTypeId);
                         }
+
+                        if (lclsSystm1 != null && !lclsSystm1.isBlank()) {
+                            builder.queryParam("lclsSystm1", lclsSystm1);
+                        }
+
+                        /*
+                         * areaBasedList2는 lclsSystm2를 전달하면 오류 응답을
+                         * 반환하므로 중분류는 서비스 계층에서 필터링합니다.
+                         */
 
                         return builder.build();
                     })

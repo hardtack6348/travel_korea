@@ -194,16 +194,10 @@ public class HomeTourService {
          * List<TourSummaryResponse>를 꺼낸 뒤 stream()을 사용해야 합니다.
          */
 
-        return tourService.getTours(
-                1, // 첫 번째 페이지
-                3, // 최대 3개 조회
-                null, // 전국 지역
-                null, // 전체 시군구
-                15, // 축제, 공연, 행사
-                "Q" // 대표 이미지가 있는 수정일순 데이터
-        )
-                .items()
+        /* 이미 조회한 축제 5건을 재사용하여 TourAPI 중복 호출을 제거합니다. */
+        return festivalItems
                 .stream()
+                .limit(3)
                 /*
                  * TourSummaryResponse를 메인 화면 축제 전용
                  * TourFestivalResponse로 변환합니다.

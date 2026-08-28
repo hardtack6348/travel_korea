@@ -23,8 +23,31 @@ public record TourApiItem(
         String lDongRegnCd,
         String lDongSignguCd,
         String mapx,
-        String mapy
+        String mapy,
+        String lclsSystm1,
+        String lclsSystm2,
+        String lclsSystm3
 ) {
+    /** 기존 목업 코드와 테스트가 동일한 생성자를 계속 사용할 수 있게 합니다. */
+    public TourApiItem(
+            String contentid,
+            String contenttypeid,
+            String title,
+            String addr1,
+            String addr2,
+            String firstimage,
+            String firstimage2,
+            String lDongRegnCd,
+            String lDongSignguCd,
+            String mapx,
+            String mapy
+    ) {
+        this(
+                contentid, contenttypeid, title, addr1, addr2,
+                firstimage, firstimage2, lDongRegnCd, lDongSignguCd,
+                mapx, mapy, null, null, null
+        );
+    }
 }
 
 /**

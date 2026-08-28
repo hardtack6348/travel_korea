@@ -34,7 +34,9 @@ public class TourController {
                 request.lDongRegnCd(),
                 request.lDongSignguCd(),
                 request.contentTypeId(),
-                request.arrange()
+                request.arrange(),
+                request.lclsSystm1(),
+                request.lclsSystm2()
         );
     }
 

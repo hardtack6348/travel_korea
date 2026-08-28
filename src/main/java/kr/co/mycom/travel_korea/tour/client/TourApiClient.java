@@ -71,6 +71,26 @@ public interface TourApiClient {
             String eventEndDate,
             String arrange
     );
+
+    /**
+     * 지역·콘텐츠 유형과 분류체계를 함께 적용해 관광정보를 조회합니다.
+     * 기존 테스트 클라이언트는 기본 구현을 사용하고, 실제 클라이언트는
+     * 이 메서드를 재정의하여 TourAPI에 분류 코드를 전달합니다.
+     */
+    default TourApiResponse getAreaBasedList(
+            int page,
+            int size,
+            Integer lDongRegnCd,
+            Integer lDongSignguCd,
+            Integer contentTypeId,
+            String arrange,
+            String lclsSystm1,
+            String lclsSystm2
+    ) {
+        return getAreaBasedList(
+                page, size, lDongRegnCd, lDongSignguCd, contentTypeId, arrange
+        );
+    }
     // TODO(팀원 A): 실제 TourAPI의 searchKeyword2 호출 메서드 추가
     // TourApiResponse searchKeyword(...);
 

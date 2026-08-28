@@ -30,6 +30,9 @@ public class TourService {
     );
     private final TourApiClient tourApiClient;
     private final TourMapper tourMapper;
+    private final TourClassificationSearchService classificationSearchService;
+    private final TourRegionGroupSourceService regionGroupSourceService;
+    private final TourCourseSearchSourceService courseSearchSourceService;
 
 
     // 관광정보 목록을 조회하고 WayLog 응답 형식으로 변환
@@ -45,8 +48,90 @@ public class TourService {
     )
     public TourListResponse getTours(int page, int size, Integer lDongRegnCd, Integer lDongSignguCd, Integer contentTypeId, String arrange) {
 
+        return getTours(
+                page, size, lDongRegnCd, lDongSignguCd,
+                contentTypeId, arrange, null, null
+        );
+    }
+
+    @Cacheable(
+            cacheNames = "tourLists",
+            key = "#page + ':' + #size + ':' + #lDongRegnCd + ':' +" +
+                    "#lDongSignguCd + ':' + #contentTypeId + ':' + #arrange + ':' +" +
+                    "#lclsSystm1 + ':' + #lclsSystm2",
+            sync = true
+    )
+    public TourListResponse getTours(
+            int page,
+            int size,
+            Integer lDongRegnCd,
+            Integer lDongSignguCd,
+            Integer contentTypeId,
+            String arrange,
+            String lclsSystm1,
+            String lclsSystm2
+    ) {
+
         validateRequest(page, size, lDongRegnCd, lDongSignguCd);
-        var response = tourApiClient.getAreaBasedList(page, size, lDongRegnCd, lDongSignguCd, contentTypeId, arrange);
+
+        /*
+         * 여행코스는 TourAPI에 법정동 조건을 직접 전달하면 오류가 발생합니다.
+         * 캐시된 전국 코스 원본에서 지역·시군구·중분류를 필터링합니다.
+         */
+        if (Integer.valueOf(25).equals(contentTypeId)
+                && (lDongRegnCd != null
+                || lDongSignguCd != null
+                || (lclsSystm2 != null && !lclsSystm2.isBlank()))) {
+            var filteredItems = courseSearchSourceService.getAll(arrange)
+                    .stream()
+                    .filter(item -> lDongRegnCd == null
+                            || String.valueOf(lDongRegnCd).equals(item.lDongRegnCd()))
+                    .filter(item -> lDongSignguCd == null
+                            || String.valueOf(lDongSignguCd).equals(item.lDongSignguCd()))
+                    .filter(item -> lclsSystm2 == null
+                            || lclsSystm2.isBlank()
+                            || lclsSystm2.equals(item.lclsSystm2()))
+                    .map(tourMapper::toSummary)
+                    .toList();
+
+            int fromIndex = Math.min((page - 1) * size, filteredItems.size());
+            int toIndex = Math.min(fromIndex + size, filteredItems.size());
+            return new TourListResponse(
+                    filteredItems.subList(fromIndex, toIndex),
+                    page,
+                    size,
+                    filteredItems.size()
+            );
+        }
+
+        /*
+         * TourAPI가 중분류 파라미터를 직접 처리하지 못하므로
+         * 중분류가 있으면 캐시된 서버 측 필터링 결과를 페이지로 나눕니다.
+         */
+        if (lclsSystm2 != null && !lclsSystm2.isBlank()) {
+            var groupedItems = classificationSearchService.findAllGroupedByMiddleClassification(
+                    lDongRegnCd,
+                    lDongSignguCd,
+                    contentTypeId,
+                    arrange,
+                    lclsSystm1
+            );
+            var filteredItems = groupedItems.getOrDefault(lclsSystm2, List.of());
+            int fromIndex = Math.min((page - 1) * size, filteredItems.size());
+            int toIndex = Math.min(fromIndex + size, filteredItems.size());
+
+            return new TourListResponse(
+                    filteredItems.subList(fromIndex, toIndex),
+                    page,
+                    size,
+                    filteredItems.size()
+            );
+        }
+
+        var response = tourApiClient.getAreaBasedList(
+                page, size, lDongRegnCd, lDongSignguCd,
+                contentTypeId, arrange, lclsSystm1, null
+        );
         var items = response.items().stream().map(tourMapper::toSummary).toList();
 
         return new TourListResponse(
@@ -79,11 +164,10 @@ public class TourService {
             throw new IllegalArgumentException("지원하지 않는 regionGroup입니다: " + regionGroup);
         }
 
-        /* 각 지역에서 현재 페이지까지 필요한 수만 조회해 합친 뒤 페이지를 자릅니다. */
-        int fetchSize = Math.min(page * size, 100);
+        /* 각 지역의 캐시된 최대 100건을 합친 뒤 요청한 페이지 범위만 자릅니다. */
         var responses = regionCodes.stream()
-                .map(code -> tourApiClient.getAreaBasedList(
-                        1, fetchSize, code, null, contentTypeId, arrange
+                .map(code -> regionGroupSourceService.getRegionSource(
+                        code, contentTypeId, arrange
                 ))
                 .toList();
 
