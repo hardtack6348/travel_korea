@@ -59,18 +59,34 @@ public class AuthService {
     public ResponseEntity login(@RequestBody UserRequest request) throws JOSEException {
         UserEntity dbUser = repo.findByEmail(request.getEmail());
         if (dbUser ==null) {
-            System.out.println("db에 user를 찾을 수 없습니다.");
-            return null;
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다."));
         }
         if (security.passwordEncoder().matches(request.getPassword(), dbUser.getPassword())) {
-//       로그인 성공
-//       완료 페이지가 어떻게 될지 몰라서 이메일만 보냄
-            System.out.println("로그인 성공");
-         return ResponseEntity.ok(jwt.createTokenPair(dbUser.getEmail()));
+            JwtConfig.TokenResponse tokens = jwt.createTokenPair(dbUser.getEmail());
+            ResponseCookie refreshCookie = jwt.createRefreshTokenCookie(tokens.refreshToken());
+
+            /*
+             * 헤더에는 닉네임이 필요하지만 비밀번호가 포함된 UserEntity 전체를
+             * 반환하면 안 되므로 화면에 필요한 안전한 회원 정보만 전달합니다.
+             */
+            Map<String, Object> member = Map.of(
+                    "memberId", dbUser.getId(),
+                    "email", dbUser.getEmail(),
+                    "nickname", dbUser.getNickname(),
+                    "role", dbUser.getGrade()
+            );
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(Map.of(
+                            "accessToken", tokens.accessToken(),
+                            "member", member
+                    ));
 
         }
-        System.out.println("알 수 없는 오류");
-        return null;
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다."));
     }
 
     public ResponseCookie logout() {

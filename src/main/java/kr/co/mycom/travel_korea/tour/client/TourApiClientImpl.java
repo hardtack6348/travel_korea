@@ -54,7 +54,6 @@ public class TourApiClientImpl implements TourApiClient {
             Integer contentTypeId,
             String arrange
     ) {
-
         try {
             /*
              * RestClient를 이용해 areaBasedList2를 GET 방식으로 호출합니다.
