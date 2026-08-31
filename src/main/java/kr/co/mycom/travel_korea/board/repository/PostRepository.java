@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.board.repository;
 
+
 import kr.co.mycom.travel_korea.board.entity.Post;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

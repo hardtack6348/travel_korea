@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.board.entity;
 
+
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

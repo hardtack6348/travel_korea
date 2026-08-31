@@ -15,7 +15,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 public class S3Config {
 
     @Bean
-    S3Client s3Client( @Value("${app.s3.region}") String region) {
+    S3Client s3Client(@Value("${app.s3.region}") String region) {
         return S3Client.builder().region(Region.of(region)).build();
     }
     @Bean

@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.board.dto;
 
+
 import java.util.List;
 
 public record PostUpdateRequest(

@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.board.storage;
 
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -32,8 +33,8 @@ public class S3StorageService implements StorageService{
 
     public S3StorageService(S3Client s3Client, S3Presigner presigner,
                             @Value("${app.s3.bucket}")String bucket,
-    @Value("${app.max-file-size-byte}")Long maxBytes,
-    @Value("${app.s3.presigned-url-minates}") Long readUrlMinutes) {
+                            @Value("${app.max-file-size-byte}")Long maxBytes,
+                            @Value("${app.s3.presigned-url-minates}") Long readUrlMinutes) {
         this.s3Client = s3Client;
         this.presigner =presigner;
         this.bucket = bucket;
@@ -46,7 +47,7 @@ public class S3StorageService implements StorageService{
         validate(file);
         String original = sanitizeFilename(file.getOriginalFilename());
         String contentType = file.getContentType();
-        String key = "myboard/"+UUID.randomUUID()+extensionFor(contentType);
+        String key = "myboard/"+ UUID.randomUUID()+extensionFor(contentType);
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)

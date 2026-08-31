@@ -1,4 +1,5 @@
 package kr.co.mycom.travel_korea.board.dto;
+
 import java.time.LocalDateTime;
 import java.util.List;
 

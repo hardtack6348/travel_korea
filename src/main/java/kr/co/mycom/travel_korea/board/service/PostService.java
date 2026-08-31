@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.board.service;
 
+
 import kr.co.mycom.travel_korea.board.dto.*;
 import kr.co.mycom.travel_korea.board.entity.Post;
 import kr.co.mycom.travel_korea.board.entity.PostImage;
@@ -51,7 +52,7 @@ public class PostService {
        keys.forEach(key -> safeDelete(key));
     }
 
-    public PostDetailResponse create(PostCreateRequest request, List<MultipartFile> images) {
+    public PostAdminResponse create(PostCreateRequest request, List<MultipartFile> images) {
         List<MultipartFile> safeImages = normalizeFiles(images);
         validateImageCount(safeImages.size());
         Post post = new Post(request.title(),request.content(),request.author());
@@ -70,6 +71,11 @@ public class PostService {
             throw e;
         }
     }
+    public PostAdminResponse create(PostCreateRequest request) {
+        Post post = new Post(request.title(),request.content(),request.author());
+        Post saved = repo.save(post);
+        return toDetail(saved);
+    }
 
     private void safeDelete(String key) {
         try{
@@ -77,18 +83,24 @@ public class PostService {
         } catch (RuntimeException e) {}
     }
 
-    private PostDetailResponse toDetail(Post post) {
-       List<PostImageResponse> imageResponses = post.getImages().stream().map(image -> new PostImageResponse(
-               image.getId(),
-               image.getObjectKey(),
-               image.getOriginalFileName(),
-               image.getContentType(),
-               image.getSize(),
-               storageService.createReadUrl(image.getObjectKey())
-       )).toList();
-        return new PostDetailResponse(post.getId(), post.getTitle(), post.getContent(),
+//    private PostDetailResponse toDetail(Post post) {
+//       List<PostImageResponse> imageResponses = post.getImages().stream().map(image -> new PostImageResponse(
+//               image.getId(),
+//               image.getObjectKey(),
+//               image.getOriginalFileName(),
+//               image.getContentType(),
+//               image.getSize(),
+//               storageService.createReadUrl(image.getObjectKey())
+//       )).toList();
+//        return new PostDetailResponse(post.getId(), post.getTitle(), post.getContent(),
+//                post.getAuthor(), post.getViewCount(), post.getCreatedAt(),
+//                post.getUpdatedAt(), imageResponses);
+//    }
+
+    private PostAdminResponse toDetail(Post post) {
+        return new PostAdminResponse(post.getId(), post.getTitle(), post.getContent(),
                 post.getAuthor(), post.getViewCount(), post.getCreatedAt(),
-                post.getUpdatedAt(), imageResponses);
+                post.getUpdatedAt());
     }
 
     private List<MultipartFile> normalizeFiles(List<MultipartFile> files) {
@@ -99,7 +111,7 @@ public class PostService {
 
     }
     @Transactional
-    public PostDetailResponse get(Long postId) {
+    public PostAdminResponse get(Long postId) {
         Post post = findPost(postId);
         post.increseViewCount();
         return toDetail(post);
@@ -108,40 +120,46 @@ public class PostService {
     public Post findPost(Long id) {
         return repo.findById(id).orElseThrow(()-> new IllegalArgumentException("게시글을 찾을 수 없습니다"));
     }
-    public PostDetailResponse getWithoutIncreasingView(Long id) {
+    public PostAdminResponse getWithoutIncreasingView(Long id) {
       return toDetail(findPost(id));
     }
 
+//    @Transactional
+//    public PostDetailResponse update(Long id, PostUpdateRequest request, List<MultipartFile> images) {
+//        Post post = findPost(id);
+//        Set<Long> removeIds = new HashSet<>(request.safeRemoveImageIds());
+//        //현재 가지고 있는 이미지중 삭제대상만 골라냄
+//        List<PostImage> removing = post.getImages().stream()
+//                .filter(image -> removeIds.contains(image.getId()))
+//                .toList();
+//        //게시물 1개에 여러장의 이미지 사용 여부
+//        int remaining = post.getImages().size()-removing.size();
+//        List<MultipartFile> safeNewImages = normalizeFiles(images);
+//        validateImageCount(remaining + safeNewImages.size());
+//        List<String> uploadKeys = new ArrayList<>();
+//
+//        try{
+//            for (MultipartFile image : safeNewImages) {
+//                StoredObject stored = storageService.upload(image);
+//                uploadKeys.add(stored.objectKey());
+//                post.addImage(new PostImage(stored.objectKey(), stored.originalFilename(), stored.contentType(), stored.size()));
+//            }
+//            post.update(request.title(), request.content(), request.author());
+//            for (PostImage image : removing) {
+//                post.removeImage(image);
+//                safeDelete(image.getObjectKey());
+//            }
+//                return toDetail(post);
+//        }catch(RuntimeException e){
+//            uploadKeys.forEach(key->safeDelete(key));
+//            throw e;
+//        }
+//    }
     @Transactional
-    public PostDetailResponse update(Long id, PostUpdateRequest request, List<MultipartFile> images) {
+    public PostAdminResponse update(Long id, PostUpdateRequest request) {
         Post post = findPost(id);
-        Set<Long> removeIds = new HashSet<>(request.safeRemoveImageIds());
-        //현재 가지고 있는 이미지중 삭제대상만 골라냄
-        List<PostImage> removing = post.getImages().stream()
-                .filter(image -> removeIds.contains(image.getId()))
-                .toList();
-        //게시물 1개에 여러장의 이미지 사용 여부
-        int remaining = post.getImages().size()-removing.size();
-        List<MultipartFile> safeNewImages = normalizeFiles(images);
-        validateImageCount(remaining + safeNewImages.size());
-        List<String> uploadKeys = new ArrayList<>();
+        return toDetail(post);
 
-        try{
-            for (MultipartFile image : safeNewImages) {
-                StoredObject stored = storageService.upload(image);
-                uploadKeys.add(stored.objectKey());
-                post.addImage(new PostImage(stored.objectKey(), stored.originalFilename(), stored.contentType(), stored.size()));
-            }
-            post.update(request.title(), request.content(), request.author());
-            for (PostImage image : removing) {
-                post.removeImage(image);
-                safeDelete(image.getObjectKey());
-            }
-                return toDetail(post);
-        }catch(RuntimeException e){
-            uploadKeys.forEach(key->safeDelete(key));
-            throw e;
-        }
     }
 
 }
