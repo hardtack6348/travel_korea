@@ -69,7 +69,11 @@ spring:
   application:
     name: travel_korea
 server:
-  port: 8080
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 55MB
+  port: ${SERVER_PORT}
 jwt:
   secret: QfvEunKI05ZNTFi11wTvArkScyZF1r8/vHxs7Tj8xxI=
   access-expiration: 1800000       # 30분 (1000 * 60 * 30)
@@ -82,3 +86,15 @@ tour-api:
   mobile-app: WayLog
   connect-timeout: 5s
   read-timeout: 10s
+app:
+  cors:
+    frontend-origin: ${FRONTEND_ORIGEN}
+  upload:
+    max-image-count: 5
+  storage:
+    type: ${STORAGE_TYPE}
+  max-file-size-byte: 10485760
+  s3:
+    bucket: ${S3_BUCKET}
+    region: ${AWS_REGION}
+    presigned-url-minates: 15
