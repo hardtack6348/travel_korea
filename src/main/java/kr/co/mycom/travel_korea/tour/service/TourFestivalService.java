@@ -1,6 +1,7 @@
 package kr.co.mycom.travel_korea.tour.service;
 
 import kr.co.mycom.travel_korea.tour.client.TourApiClient;
+import kr.co.mycom.travel_korea.tour.data.LocalClassificationCatalog;
 import kr.co.mycom.travel_korea.tour.dto.request.FestivalStatus;
 import kr.co.mycom.travel_korea.tour.dto.response.TourFestivalItemResponse;
 import kr.co.mycom.travel_korea.tour.dto.response.TourFestivalListResponse;
@@ -17,14 +18,16 @@ import java.time.format.DateTimeFormatter;
 public class TourFestivalService {
     private static final DateTimeFormatter TOUR_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private final TourApiClient tourApiClient;
+    private final LocalClassificationCatalog classificationCatalog;
 
     @Cacheable(
             cacheNames = "tourLists",
-            key = "'festivals:' + #page + ':' + #size + ':' + #lDongRegnCd + ':' + #status + ':' + #arrange",
+            key = "'festivals:' + #page + ':' + #size + ':' + #lDongRegnCd + ':' + " +
+                    "#lDongSignguCd + ':' + #status + ':' + #arrange",
             sync = true
     )
     public TourFestivalListResponse getFestivals(
-            int page, int size, Integer lDongRegnCd, FestivalStatus status, String arrange
+            int page, int size, Integer lDongRegnCd, Integer lDongSignguCd, FestivalStatus status, String arrange
     ) {
         LocalDate today = LocalDate.now();
         LocalDate start;
@@ -42,16 +45,28 @@ public class TourFestivalService {
         }
 
         var response = tourApiClient.getFestivals(
-                page, size, lDongRegnCd,
+                page, size, lDongRegnCd, lDongSignguCd,
                 start.format(TOUR_DATE), end.format(TOUR_DATE), arrange
         );
-        var items = response.items().stream().map(item -> new TourFestivalItemResponse(
-                item.contentid(), item.contenttypeid(), item.title(),
-                joinAddress(item.addr1(), item.addr2()), item.firstimage(), item.firstimage2(),
-                item.lDongRegnCd(), item.lDongSignguCd(),
-                parseDouble(item.mapy()), parseDouble(item.mapx()),
-                item.eventstartdate(), item.eventenddate()
-        )).toList();
+        var items = response.items().stream().map(item -> {
+            var classification = classificationCatalog.findByCodes(
+                    item.lclsSystm1(), item.lclsSystm2(), item.lclsSystm3()
+            ).orElse(null);
+
+            return new TourFestivalItemResponse(
+                    item.contentid(), item.contenttypeid(), item.title(),
+                    joinAddress(item.addr1(), item.addr2()), item.firstimage(), item.firstimage2(),
+                    item.lDongRegnCd(), item.lDongSignguCd(),
+                    parseDouble(item.mapy()), parseDouble(item.mapx()),
+                    item.eventstartdate(), item.eventenddate(),
+                    item.lclsSystm1(),
+                    classification == null ? null : classification.lclsSystm1Nm(),
+                    item.lclsSystm2(),
+                    classification == null ? null : classification.lclsSystm2Nm(),
+                    item.lclsSystm3(),
+                    classification == null ? null : classification.lclsSystm3Nm()
+            );
+        }).toList();
 
         return new TourFestivalListResponse(
                 items, response.pageNo(), response.numOfRows(), response.totalCount()

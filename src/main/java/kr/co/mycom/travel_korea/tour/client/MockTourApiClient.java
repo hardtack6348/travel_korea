@@ -155,13 +155,14 @@ public class MockTourApiClient implements TourApiClient {
 
     @Override
     public TourApiFestivalResponse getFestivals(
-            int page, int size, Integer lDongRegnCd,
+            int page, int size, Integer lDongRegnCd, Integer lDongSignguCd,
             String eventStartDate, String eventEndDate, String arrange
     ) {
         var item = new TourApiFestivalItem(
                 "mock-festival-1", "15", "WayLog 지역 축제",
                 "서울특별시 종로구", null, null, null,
-                "11", "110", "126.97", "37.57",
+                "11", lDongSignguCd == null ? "110" : String.valueOf(lDongSignguCd),
+                "126.97", "37.57",
                 eventStartDate, eventEndDate
         );
         return new TourApiFestivalResponse(List.of(item), page, size, 1);

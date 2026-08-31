@@ -67,6 +67,7 @@ public interface TourApiClient {
             int page,
             int size,
             Integer lDongRegnCd,
+            Integer lDongSignguCd,
             String eventStartDate,
             String eventEndDate,
             String arrange

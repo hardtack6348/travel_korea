@@ -17,6 +17,32 @@ public record TourApiFestivalItem(
         String mapx,
         String mapy,
         String eventstartdate,
-        String eventenddate
+        String eventenddate,
+        String lclsSystm1,
+        String lclsSystm2,
+        String lclsSystm3
 ) {
+    /** 기존 목 클라이언트와 테스트용 생성 형식을 유지합니다. */
+    public TourApiFestivalItem(
+            String contentid,
+            String contenttypeid,
+            String title,
+            String addr1,
+            String addr2,
+            String firstimage,
+            String firstimage2,
+            String lDongRegnCd,
+            String lDongSignguCd,
+            String mapx,
+            String mapy,
+            String eventstartdate,
+            String eventenddate
+    ) {
+        this(
+                contentid, contenttypeid, title, addr1, addr2,
+                firstimage, firstimage2, lDongRegnCd, lDongSignguCd,
+                mapx, mapy, eventstartdate, eventenddate,
+                null, null, null
+        );
+    }
 }

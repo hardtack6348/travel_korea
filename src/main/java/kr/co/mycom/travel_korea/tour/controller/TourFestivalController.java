@@ -18,7 +18,7 @@ public class TourFestivalController {
     @GetMapping
     public TourFestivalListResponse getFestivals(@ModelAttribute FestivalSearchRequest request) {
         return service.getFestivals(
-                request.page(), request.size(), request.lDongRegnCd(),
+                request.page(), request.size(), request.lDongRegnCd(), request.lDongSignguCd(),
                 request.status(), request.arrange()
         );
     }

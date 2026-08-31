@@ -2,6 +2,8 @@ package kr.co.mycom.travel_korea.tour.mapper;
 
 import kr.co.mycom.travel_korea.tour.dto.external.TourApiItem;
 import kr.co.mycom.travel_korea.tour.dto.response.TourSummaryResponse;
+import kr.co.mycom.travel_korea.tour.data.LocalClassificationCatalog;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -10,8 +12,15 @@ import java.util.stream.Stream;
 
  // TourAPI 원본 필드를 WayLog 프론트엔드 응답 필드로 변환
 @Component
+@RequiredArgsConstructor
 public class TourMapper {
+    private final LocalClassificationCatalog classificationCatalog;
+
     public TourSummaryResponse toSummary (TourApiItem item) {
+        var classification = classificationCatalog.findByCodes(
+                item.lclsSystm1(), item.lclsSystm2(), item.lclsSystm3()
+        ).orElse(null);
+
         return new TourSummaryResponse(
                 item.contentid(),
                 item.contenttypeid(),
@@ -22,7 +31,13 @@ public class TourMapper {
                 item.lDongRegnCd(),
                 item.lDongSignguCd(),
                 parseDouble(item.mapy()),
-                parseDouble(item.mapx())
+                parseDouble(item.mapx()),
+                item.lclsSystm1(),
+                classification == null ? null : classification.lclsSystm1Nm(),
+                item.lclsSystm2(),
+                classification == null ? null : classification.lclsSystm2Nm(),
+                item.lclsSystm3(),
+                classification == null ? null : classification.lclsSystm3Nm()
         );
     }
 

@@ -57,7 +57,7 @@ public class AuthService {
     }
 
     public ResponseEntity login(@RequestBody UserRequest request) throws JOSEException {
-        UserEntity dbUser = repo.findByEmail(request.getEmail());
+        UserEntity dbUser = repo.findByEmail(request.getEmail()).orElse(null);
         if (dbUser ==null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다."));
@@ -166,7 +166,7 @@ public class AuthService {
     }
 
     public void changePassword(UserRequest request) {
-        UserEntity user = repo.findByEmail(request.getEmail());
+        UserEntity user = repo.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("해당 이메일의 회원을 찾을 수 없습니다."));
         user.setPassword(security.passwordEncoder().encode(request.getPassword()));
         repo.save(user);
     }

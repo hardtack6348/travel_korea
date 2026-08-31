@@ -10,7 +10,13 @@ public record TourSummaryResponse(
         String lDongRegnCd,
         String lDongSignguCd,
         Double latitude,
-        Double longitude
+        Double longitude,
+        String lclsSystm1,
+        String lclsSystm1Nm,
+        String lclsSystm2,
+        String lclsSystm2Nm,
+        String lclsSystm3,
+        String lclsSystm3Nm
 ) {
 
 }

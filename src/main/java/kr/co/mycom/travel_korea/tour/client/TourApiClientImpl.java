@@ -258,6 +258,7 @@ public class TourApiClientImpl implements TourApiClient {
             int page,
             int size,
             Integer lDongRegnCd,
+            Integer lDongSignguCd,
             String eventStartDate,
             String eventEndDate,
             String arrange
@@ -277,6 +278,9 @@ public class TourApiClientImpl implements TourApiClient {
                                 .queryParam("eventEndDate", eventEndDate);
                         if (lDongRegnCd != null) {
                             builder.queryParam("lDongRegnCd", lDongRegnCd);
+                        }
+                        if (lDongSignguCd != null) {
+                            builder.queryParam("lDongSignguCd", lDongSignguCd);
                         }
                         return builder.build();
                     })

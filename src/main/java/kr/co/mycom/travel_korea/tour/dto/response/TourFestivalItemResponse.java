@@ -13,6 +13,12 @@ public record TourFestivalItemResponse(
         Double latitude,
         Double longitude,
         String startDate,
-        String endDate
+        String endDate,
+        String lclsSystm1,
+        String lclsSystm1Nm,
+        String lclsSystm2,
+        String lclsSystm2Nm,
+        String lclsSystm3,
+        String lclsSystm3Nm
 ) {
 }
