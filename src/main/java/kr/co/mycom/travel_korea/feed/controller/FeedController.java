@@ -59,12 +59,13 @@ public class FeedController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PutMapping("/{postId}")
-    public ResponseEntity<FeedPostResponse> update(@PathVariable Long postId,
-                                                   @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-                                                   @Valid @RequestBody FeedUpdateRequest request) {
-        return ResponseEntity.ok(feedService.update(postId, extractRequiredEmail(authorization), request));
-    }
+    // SNS에서는 보통 게시물 수정 기능을 제공하지 않기 때문에 수정 기능은 막아두는 것이 자연스러움
+//    @PutMapping("/{postId}")
+//    public ResponseEntity<FeedPostResponse> update(@PathVariable Long postId,
+//                                                   @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+//                                                   @Valid @RequestBody FeedUpdateRequest request) {
+//        return ResponseEntity.ok(feedService.update(postId, extractRequiredEmail(authorization), request));
+//    }
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> delete(@PathVariable Long postId,

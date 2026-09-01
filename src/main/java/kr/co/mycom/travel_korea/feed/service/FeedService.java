@@ -23,10 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,13 +36,27 @@ public class FeedService {
     private final UserRepository userRepository;
     private final StorageService storageService;
 
+    // 피드 게시글 하나에 등록할 수 있는 최대 이미지 수
+    private static final int MAX_IMAGE_COUNT = 5;
+
+    // 이미지 한 장의 최대 허용 용량(5MB)
+    private static final long MAX_IMAGE_SIZE = 5*1024*1024;
+
+    // 허용할 이미지 MIME 타입 목록
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+    );
+
     @Transactional
     public FeedPostResponse create(String loginEmail, FeedCreateRequest request, List<MultipartFile> images) {
         UserEntity author = findUser(loginEmail);
 
-        List<MultipartFile> safeImages = normalizeFiles(images);
+        // 요청으로 들어온 이미지의 개수, 빈 파일, 형식, 용량을 먼저 검사
+        validateImages(images);
 
-        validataePhotoCount(safeImages.size());
+        List<MultipartFile> safeImages = normalizeFiles(images);
 
         FeedPost post = new FeedPost(
                 author,
@@ -155,37 +166,59 @@ public class FeedService {
         return toResponse(post, liked, bookmarked);
     }
 
+    // Feed는 SNS 성향이 강한 페이지이기 때문에 게시물 수정 기능은 제외하는 것이 자연스러움
+//    @Transactional
+//    public FeedPostResponse update(Long postId, String loginEmail, FeedUpdateRequest request) {
+//        FeedPost post = findPost(postId);
+//        validateAuthor(post, loginEmail);
+//
+//        post.update(
+//                request.content().trim(),
+//                request.locationName(),
+//                request.address(),
+//                request.latitude(),
+//                request.longitude(),
+//                request.tourContentId(),
+//                request.tourContentTypeId(),
+//                normalizeVisibility(request.visibility())
+//        );
+//
+//        post.replaceTags(request.tags());
+//
+//        return toResponse(post,false, false);
+//    }
+
+    /**
+     * 작성자 본인의 게시글을 삭제합니다.
+     * DB 게시글 및 사진 행을 지우고, S3에 남은 실제 이미지 파일도 정리합니다.
+     */
+
     @Transactional
-    public FeedPostResponse update(Long postId, String loginEmail, FeedUpdateRequest request) {
-        FeedPost post = findPost(postId);
-        validateAuthor(post, loginEmail);
-
-        post.update(
-                request.content().trim(),
-                request.locationName(),
-                request.address(),
-                request.latitude(),
-                request.longitude(),
-                request.tourContentId(),
-                request.tourContentTypeId(),
-                normalizeVisibility(request.visibility())
-        );
-
-        post.replaceTags(request.tags());
-
-        return toResponse(post,false, false);
-    }
-
-    @Transactional
-    public void delete(Long postId, String loginEmail) {
-        FeedPost post = findPost(postId);
-        validateAuthor(post, loginEmail);
+    public void delete(Long postId, String email) {
+        FeedPost post = getOwnedPost(postId, email);
 
         /*
-         * 사진, 태그, 좋아요, 북마크는 FK의 ON DELETE CASCADE 또는
-         * JPA 관계 설정에 따라 함께 삭제됩니다.
+         * DB 삭제 후에는 연관된 FeedPhoto 엔티티에 접근하기 어려울 수 있으므로,
+         * 삭제 전에 S3 objectKey를 별도 목록으로 확보합니다.
+         */
+        List<String> imageKeys = post.getPhotos().stream()
+                        .map(FeedPhoto::getImageUrl)
+                                .filter(Objects::nonNull)
+                                        .filter(key -> !key.isBlank())
+                                                .toList();
+
+        /*
+         * FeedPost - FeedPhoto 관계에 cascade = CascadeType.ALL,
+         * orphanRemoval = true가 설정되어 있다면 feed_photo 행도 함께 삭제됩니다.
          */
         feedPostRepository.delete(post);
+
+        /*
+         * DB 삭제 작업이 끝난 뒤 S3에 저장된 이미지 파일을 삭제합니다.
+         * delete() 내부에서 S3 삭제 실패는 로그로 남기므로,
+         * S3 일시 오류 때문에 게시글 삭제가 실패하지 않습니다.
+         */
+        imageKeys.forEach(storageService::delete);
     }
 
 
@@ -232,7 +265,21 @@ public class FeedService {
     }
 
     private FeedPost findPost(Long postId) {
+
         return feedPostRepository.findWithDetailsById(postId).orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+    }
+
+    /**
+     * 게시글을 조회한 뒤, 현재 로그인한 사용자가 작성자인지 검증합니다.
+     * 삭제처럼 작성자에게만 허용된 기능에서 사용합니다.
+     */
+    private FeedPost getOwnedPost(Long postId, String loginEmail) {
+        FeedPost post = findPost(postId);
+
+        // 작성자 이메일이 다르면 삭제를 허용하지 않는다.
+        validateAuthor(post, loginEmail);
+
+        return post;
     }
 
     private void validateAuthor(FeedPost post, String loginEmail) {
@@ -253,6 +300,45 @@ public class FeedService {
         }
 
         return normalized;
+    }
+
+    /**
+     * S3 업로드 전에 이미지 파일의 개수, 빈 파일 여부, 크기, 형식을 검사합니다.
+     * 조건에 맞지 않는 파일은 S3에 업로드되기 전에 400 응답으로 차단됩니다.
+     */
+    private void validateImages(List<MultipartFile> images) {
+        // 이미지 없이 텍스트만 작성하는 게시글 허용
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+
+        // from-data에 선택된 이미지 파트만 추림
+        List<MultipartFile> selectedImages = images.stream()
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (selectedImages.size() > MAX_IMAGE_COUNT) {
+            throw new IllegalArgumentException("피드 사진은 최대 " + MAX_IMAGE_COUNT + "장까지 등록할 수 있습니다.");
+        }
+
+        for (MultipartFile image : selectedImages) {
+            // 빈 파일은 이미지로 취급하지 않고 명확히 오류로 반환
+            if (image.isEmpty()) {
+                throw new IllegalArgumentException("빈 이미지는 업로드할 수 없습니다.");
+            }
+
+            // S3 저장 전에 파일 크기를 제한
+            if (image.getSize() > MAX_IMAGE_SIZE) {
+                throw new IllegalArgumentException("이미지 한 장은 5MB 이하만 업로드할 수 있습니다.");
+            }
+
+            // 브라우저/Postman이 전달한 MIME 타입 기준으로 이미지 형식을 제한
+            String contentType = image.getContentType();
+
+            if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+                throw new IllegalArgumentException("JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.");
+            }
+        }
     }
 
     /**
