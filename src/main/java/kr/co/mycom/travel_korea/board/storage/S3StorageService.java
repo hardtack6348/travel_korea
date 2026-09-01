@@ -23,7 +23,7 @@ import java.util.UUID;
         name="app.storage.type", havingValue="s3",matchIfMissing=true
 )
 public class S3StorageService implements StorageService{
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jepg","image/png","image/gif","image/webp");
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg","image/png","image/gif","image/webp");
     private final S3Client s3Client;
     private final S3Presigner presigner;
     private final String bucket;
@@ -34,7 +34,7 @@ public class S3StorageService implements StorageService{
     public S3StorageService(S3Client s3Client, S3Presigner presigner,
                             @Value("${app.s3.bucket}")String bucket,
                             @Value("${app.max-file-size-byte}")Long maxBytes,
-                            @Value("${app.s3.presigned-url-minates}") Long readUrlMinutes) {
+                            @Value("${app.s3.presigned-url-minutes}") Long readUrlMinutes) {
         this.s3Client = s3Client;
         this.presigner =presigner;
         this.bucket = bucket;
@@ -64,23 +64,34 @@ public class S3StorageService implements StorageService{
 
     private String extensionFor(String contentType) {
         return switch (contentType){
-            case "image/jpeg" -> "jpg";
-            case "image/png" -> "png";
-            case "image/gif" -> "gif";
-            case "image/webp" -> "webp";
+            case "image/jpeg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
             default -> "";
         };
     }
 
+
+    /**
+     * S3 업로드 전에 파일 형식과 크기를 검증합니다.
+     *
+     * 조건을 만족하지 못하면 예외를 발생시켜
+     * S3 업로드와 DB 저장이 진행되지 않도록 합니다.
+     */
+
     private void validate(MultipartFile file){
         if(file== null || file.isEmpty()){
-            System.out.println("파일이 비어있습니다.");
+            throw new IllegalArgumentException("업로드할 이미지 파일이 없습니다.");
         }
         if(file.getSize() > maxBytes) {
-            System.out.println("파일 용량이 너무 큽니다.");
+            throw new IllegalArgumentException("이미지 파일 용량이 제한을 초과했습니다.");
         }
-        if(file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType())){
-            System.out.println("jpg,png,gif,webp 이미지만 업로드 할 수 있습니다.");
+
+        String contentType = file.getContentType();
+
+        if(contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)){
+            throw new IllegalArgumentException("jpeg, png, gif, webp 형식의 이미지만 업로드할 수 있습니다.");
         }
     }
     // 순수한 파일명만 반환시키기

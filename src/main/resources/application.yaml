@@ -97,4 +97,4 @@ app:
   s3:
     bucket: ${S3_BUCKET}
     region: ${AWS_REGION}
-    presigned-url-minates: 15
+    presigned-url-minutes: 15

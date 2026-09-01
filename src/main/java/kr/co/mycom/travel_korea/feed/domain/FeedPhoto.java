@@ -33,9 +33,22 @@ public class FeedPhoto {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    public FeedPhoto(FeedPost feedPost, String imageUrl, int sortOrder) {
+
+    /**
+     * 피드 게시글과 S3 이미지 정보를 연결합니다.
+     *
+     * imageUrl에는 실제 URL이 아니라 S3 objectKey를 저장합니다.
+     */
+
+    public FeedPhoto(
+            FeedPost feedPost,
+            String objectKey,
+            String originalFileName,
+            int sortOrder
+    ) {
         this.feedPost = feedPost;
-        this.imageUrl = imageUrl;
+        this.imageUrl = objectKey;
+        this.originalFileName = originalFileName;
         this.sortOrder = sortOrder;
     }
 }

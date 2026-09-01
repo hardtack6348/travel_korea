@@ -1,5 +1,7 @@
 package kr.co.mycom.travel_korea.feed.service;
 
+import kr.co.mycom.travel_korea.board.storage.StorageService;
+import kr.co.mycom.travel_korea.board.storage.StoredObject;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.feed.domain.*;
 import kr.co.mycom.travel_korea.feed.dto.FeedCreateRequest;
@@ -15,10 +17,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,10 +37,15 @@ public class FeedService {
     private final FeedLikeRepository feedLikeRepository;
     private final FeedBookMarkRepository feedBookMarkRepository;
     private final UserRepository userRepository;
+    private final StorageService storageService;
 
     @Transactional
-    public FeedPostResponse create(String loginEmail, FeedCreateRequest request) {
+    public FeedPostResponse create(String loginEmail, FeedCreateRequest request, List<MultipartFile> images) {
         UserEntity author = findUser(loginEmail);
+
+        List<MultipartFile> safeImages = normalizeFiles(images);
+
+        validataePhotoCount(safeImages.size());
 
         FeedPost post = new FeedPost(
                 author,
@@ -50,12 +60,43 @@ public class FeedService {
         );
 
         post.replaceTags(request.tags());
-        post.replacePhotos(request.imageUrls());
 
-        FeedPost savedPost = feedPostRepository.save(post);
+        /*
+         * S3 업로드 도중 오류가 생기면
+         * 이번 요청에서 업로드한 파일만 정리합니다.
+         */
 
-        return FeedPostResponse.from(savedPost, false, false);
+        List<String> uploadedKeys = new ArrayList<>();
+
+        try {
+            int sortOrder = 0;
+
+            for (MultipartFile image : safeImages) {
+                StoredObject stored = storageService.upload(image);
+
+                uploadedKeys.add(stored.objectKey());
+
+                post.addPhoto(
+                        stored.objectKey(),
+                        stored.originalFilename(),
+                        sortOrder++
+                );
+            }
+
+            FeedPost savedPost = feedPostRepository.save(post);
+            return toResponse(savedPost, false, false);
+        } catch (RuntimeException exception) {
+            uploadedKeys.forEach(key -> {
+                try {
+                    storageService.delete(key);
+                } catch (RuntimeException ignored) {
+                    // 원래 발생한 업로드 오류를 우선 반환
+                }
+            });
+            throw exception;
+        }
     }
+
 
     public FeedPageResponse getFeed(String loginEmail, int page, int size) {
         /*
@@ -89,7 +130,7 @@ public class FeedService {
         }
 
         List<FeedPostResponse> responses = postPage.getContent().stream()
-                .map(post -> FeedPostResponse.from(
+                .map(post -> toResponse(
                         post,
                         likedPostIds.contains(post.getId()),
                         bookmarkedPostIds.contains(post.getId())
@@ -111,7 +152,7 @@ public class FeedService {
             bookmarked = feedBookMarkRepository.existsByFeedPost_IdAndUser_Id(postId, user.getId());
         }
 
-        return FeedPostResponse.from(post, liked, bookmarked);
+        return toResponse(post, liked, bookmarked);
     }
 
     @Transactional
@@ -131,9 +172,8 @@ public class FeedService {
         );
 
         post.replaceTags(request.tags());
-        post.replacePhotos(request.imageUrls());
 
-        return FeedPostResponse.from(post, false, false);
+        return toResponse(post,false, false);
     }
 
     @Transactional
@@ -214,4 +254,63 @@ public class FeedService {
 
         return normalized;
     }
+
+    /**
+     * S3 objectKey를 브라우저에서 표시 가능한 URL로 변환합니다.
+     *
+     * 이전 데이터에 이미 완성된 URL이 저장되어 있는 경우도
+     * 화면이 깨지지 않도록 그대로 반환합니다.
+     */
+    private String toReadableImageUrl(String imageValue) {
+        if (imageValue == null || imageValue.isBlank()) {
+            return null;
+        }
+
+        if (imageValue.startsWith("http://") || imageValue.startsWith("https://")) {
+            return imageValue;
+        }
+
+        return storageService.createReadUrl(imageValue);
+    }
+
+
+    /**
+     * multipart 요청에서 실제로 선택된 파일만 남깁니다.
+     */
+    private List<MultipartFile> normalizeFiles(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+
+        return files.stream()
+                .filter(file -> file != null && !file.isEmpty())
+                .toList();
+    }
+
+    /**
+     * 피드 게시글 하나에 사진은 최대 5장까지만 허용합니다.
+     */
+    private void validataePhotoCount(int count) {
+        if (count > 5) {
+            throw new IllegalArgumentException("피드 사진은 최대 5장까지 등록할 수 있습니다.");
+        }
+    }
+
+    /**
+     * FeedPostResponse 생성 방식을 한 곳으로 통일합니다.
+     */
+    private FeedPostResponse toResponse(
+            FeedPost post,
+            boolean liked,
+            boolean bookmarked
+    ) {
+        return FeedPostResponse.from(
+                post,
+                liked,
+                bookmarked,
+                this::toReadableImageUrl
+        );
+    }
+
+
 }
