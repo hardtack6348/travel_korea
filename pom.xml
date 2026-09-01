@@ -130,6 +130,13 @@
             <version>2.54.7</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- @Valid, @NotBlank, @NotNull 등의 요청값 검증 기능 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
