@@ -46,8 +46,6 @@ public class SecurityConfig {
 
                        // 공개 피드 조회
                        .requestMatchers(HttpMethod.GET, "/api/v1/feed/posts/**").permitAll()
-
-                       // 상세 조회는 누구나 볼 수 있어야 하므로 공개 GET 경로 추가
                        .requestMatchers(HttpMethod.GET, "/api/v1/tour/contents/**").permitAll()
                        /*
                         * 공지 등록·수정·삭제는 관리자만 허용합니다.
