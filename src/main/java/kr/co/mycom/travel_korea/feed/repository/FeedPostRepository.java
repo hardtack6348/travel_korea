@@ -16,7 +16,15 @@ public interface FeedPostRepository extends JpaRepository<FeedPost, Long> {
     @EntityGraph(attributePaths = "author")
     Page<FeedPost> findByVisibility(String  visibility, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"author", "photos", "tags"})
+    /*
+     * photos와 tags를 동시에 fetch join하면
+     * 사진 수 × 태그 수만큼 조인 결과가 늘어날 수 있습니다.
+     *
+     * photos만 함께 조회하고, tags는 FeedService의 트랜잭션 안에서
+     * 필요한 시점에 별도 조회하도록 합니다.
+     */
+
+    @EntityGraph(attributePaths = {"author", "photos"})
     Optional<FeedPost> findWithDetailsById(Long id);
 
     /**
