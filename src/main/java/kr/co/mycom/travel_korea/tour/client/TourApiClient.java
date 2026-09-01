@@ -1,10 +1,6 @@
 package kr.co.mycom.travel_korea.tour.client;
 
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiRegionItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalResponse;
+import kr.co.mycom.travel_korea.tour.dto.external.*;
 
 import java.util.List;
 
@@ -92,11 +88,16 @@ public interface TourApiClient {
                 page, size, lDongRegnCd, lDongSignguCd, contentTypeId, arrange
         );
     }
-    // TODO(팀원 A): 실제 TourAPI의 searchKeyword2 호출 메서드 추가
-    // TourApiResponse searchKeyword(...);
 
-    // TODO(팀원 A): 실제 TourAPI의 detailCommon2 호출 메서드 추가
-    // TourApiDetailCommonItem getDetailCommon(...);
+    /**
+     * TourAPI 공통 상세 정보를 조회합니다.
+     * 제목, 이미지, 주소, 좌표, 소개 문구를 가져옵니다.
+     */
+    TourApiDetailCommonItem getDetailCommon(String contentId, Integer contentTypeId);
 
-
+    /**
+     * TourAPI 유형별 상세 정보를 조회합니다.
+     * contentTypeId에 따라 관광지·축제·음식점 등의 필드가 달라집니다.
+     */
+    TourApiDetailIntroItem getDetailIntro(String contentId, Integer contentTypeId);
 }

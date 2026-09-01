@@ -46,13 +46,16 @@ public class SecurityConfig {
 
                        // 공개 피드 조회
                        .requestMatchers(HttpMethod.GET, "/api/v1/feed/posts/**").permitAll()
+
+                       // 상세 조회는 누구나 볼 수 있어야 하므로 공개 GET 경로 추가
+                       .requestMatchers(HttpMethod.GET, "/api/v1/tour/contents/**").permitAll()
                        /*
                         * 공지 등록·수정·삭제는 관리자만 허용합니다.
                         *
                         * DB GRADE가 ADMIN이면 ROLE_ADMIN을 사용합니다.
                         */
                        .requestMatchers("/api/v1/admin/**")
-                       .hasAuthority("ROLE_TT_ADMIN")
+                       .hasAuthority("ROLE_ADMIN")
 
                        // 나머지 API는 로그인 사용자만 접근
                        .anyRequest().authenticated()

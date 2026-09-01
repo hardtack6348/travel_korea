@@ -214,6 +214,136 @@ public class TourApiClientImpl implements TourApiClient {
     }
 
     @Override
+    public TourApiDetailCommonItem getDetailCommon(String contentId, Integer contentTypeId) {
+        try {
+            TourApiDetailCommonRawResponse rawResponse = tourApiRestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/detailCommon2")
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("MobileOS", properties.mobileOs())
+                            .queryParam("MobileApp", properties.mobileApp())
+                            .queryParam("_type", "json")
+                            .queryParam("contentId", contentId)
+                            /*
+                             * detailCommon2(최신 TourAPI 4.0)는 contentId만으로
+                             * 공통 상세 정보를 조회합니다.
+                             *
+                             * contentTypeId와 defaultYN, firstImageYN 등의 예전
+                             * 상세 옵션을 함께 보내면 일부 응답에서 본문이 비어
+                             * 반환될 수 있으므로 이 API에서는 전달하지 않습니다.
+                             */
+                            .queryParam("pageNo", 1)
+                            .queryParam("numOfRows", 1)
+                            .build())
+                    .retrieve()
+                    .body(TourApiDetailCommonRawResponse.class);
+
+            return extractDetailCommon(rawResponse);
+        } catch (TourApiException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw convertCommunicationException("TourAPI 공통 상세", exception);
+        }
+    }
+
+    @Override
+    public TourApiDetailIntroItem getDetailIntro(String contentId, Integer contentTypeId) {
+        try {
+            TourApiDetailIntroRawResponse rawResponse = tourApiRestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/detailIntro2")
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("MobileOS", properties.mobileOs())
+                            .queryParam("MobileApp", properties.mobileApp())
+                            .queryParam("_type", "json")
+                            .queryParam("contentId", contentId)
+                            .queryParam("contentTypeId", contentTypeId)
+                            .build())
+                    .retrieve()
+                    .body(TourApiDetailIntroRawResponse.class);
+
+            return extractDetailIntro(rawResponse);
+        } catch (TourApiException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw convertCommunicationException("TourAPI 유형별 상세", exception);
+        }
+    }
+
+    /** detailCommon2에서 상세 화면의 공통 정보를 꺼냅니다. */
+    private TourApiDetailCommonItem extractDetailCommon(
+            TourApiDetailCommonRawResponse rawResponse
+    ) {
+        if (rawResponse == null || rawResponse.response() == null) {
+            throw new TourApiException(
+                    "EMPTY_DETAIL_COMMON_RESPONSE",
+                    "TourAPI 공통 상세 응답이 비어 있습니다."
+            );
+        }
+
+        var response = rawResponse.response();
+        var header = response.header();
+
+        validateDetailResult(
+                header == null ? null : header.resultCode(),
+                header == null ? null : header.resultMsg()
+        );
+
+        if (response.body() == null
+                || response.body().items() == null
+                || response.body().items().item() == null
+                || response.body().items().item().isEmpty()) {
+            throw new TourApiException(
+                    "EMPTY_DETAIL_COMMON_RESPONSE",
+                    "TourAPI 공통 상세 데이터가 없습니다."
+            );
+        }
+
+        return response.body().items().item().get(0);
+    }
+
+    /** detailIntro2에서 유형별 상세 정보를 꺼냅니다. */
+    private TourApiDetailIntroItem extractDetailIntro(
+            TourApiDetailIntroRawResponse rawResponse
+    ) {
+        if (rawResponse == null || rawResponse.response() == null) {
+            return null;
+        }
+
+        var response = rawResponse.response();
+        var header = response.header();
+
+        validateDetailResult(
+                header == null ? null : header.resultCode(),
+                header == null ? null : header.resultMsg()
+        );
+
+        if (response.body() == null
+                || response.body().items() == null
+                || response.body().items().item() == null
+                || response.body().items().item().isEmpty()) {
+            // 유형별 상세 정보가 없는 콘텐츠도 공통 상세는 정상적으로 보여 줍니다.
+            return null;
+        }
+
+        return response.body().items().item().get(0);
+    }
+
+    /** TourAPI detailCommon2·detailIntro2의 업무 결과 코드를 검사합니다. */
+    private void validateDetailResult(String resultCode, String resultMessage) {
+        if (resultCode == null) {
+            throw new TourApiException(
+                    "EMPTY_HEADER",
+                    "TourAPI 상세 응답 헤더가 없습니다."
+            );
+        }
+
+        if (!"0000".equals(resultCode)) {
+            throw new TourApiException(resultCode, resultMessage);
+        }
+    }
+
+    @Override
     public List<TourApiRegionItem> getRegionCodes(Integer lDongRegnCd) {
         try {
             TourApiRegionRawResponse rawResponse = tourApiRestClient.get()

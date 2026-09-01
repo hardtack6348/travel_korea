@@ -1,12 +1,6 @@
 package kr.co.mycom.travel_korea.tour.client;
 
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseDetailItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiCourseIntroItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiResponse;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiRegionItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalItem;
-import kr.co.mycom.travel_korea.tour.dto.external.TourApiFestivalResponse;
+import kr.co.mycom.travel_korea.tour.dto.external.*;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -166,5 +160,15 @@ public class MockTourApiClient implements TourApiClient {
                 eventStartDate, eventEndDate
         );
         return new TourApiFestivalResponse(List.of(item), page, size, 1);
+    }
+
+    @Override
+    public TourApiDetailCommonItem getDetailCommon(String contentId, Integer contentTypeId) {
+        return null;
+    }
+
+    @Override
+    public TourApiDetailIntroItem getDetailIntro(String contentId, Integer contentTypeId) {
+        return null;
     }
 }
