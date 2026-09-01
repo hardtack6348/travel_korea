@@ -72,7 +72,7 @@ server:
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 55MB
+      max-request-size: 30MB
   port: ${SERVER_PORT}
 jwt:
   secret: QfvEunKI05ZNTFi11wTvArkScyZF1r8/vHxs7Tj8xxI=

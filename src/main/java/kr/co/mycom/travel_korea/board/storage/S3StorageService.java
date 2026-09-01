@@ -1,6 +1,7 @@
 package kr.co.mycom.travel_korea.board.storage;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @ConditionalOnProperty(
         name="app.storage.type", havingValue="s3",matchIfMissing=true
@@ -106,10 +108,22 @@ public class S3StorageService implements StorageService{
     @Override
     public void delete(String objectKey) {
         if(objectKey == null || objectKey.isBlank()) return ;
-        s3Client.deleteObject(DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build());
+
+        try {
+            DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .build();
+
+            s3Client.deleteObject(deleteRequest);
+        } catch (Exception exception) {
+            /*
+             * 게시글 DB 삭제까지 실패시키면 사용자가 게시글을 지울 수 없게 됩니다.
+             * 따라서 우선 로그를 남기고, 운영 환경에서는 재시도 작업 대상으로 관리합니다.
+             */
+            log.error("S3 이미지 삭제에 실패했습니다. objectKey={}", objectKey, exception);
+        }
+
 
     }
 
