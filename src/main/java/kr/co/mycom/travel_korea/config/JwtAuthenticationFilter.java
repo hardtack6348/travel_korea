@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Authorization 헤더의 Bearer JWT를 검증하고
@@ -66,7 +67,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
              *
              * 예: DB의 grade 값이 ADMIN이면 ROLE_ADMIN으로 변환합니다.
              */
-            String role = "ROLE_" + user.getGrade();
+            String role = "ROLE_" + user.getGrade()
+                    .trim().toUpperCase(Locale.ROOT);
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), null, List.of(new SimpleGrantedAuthority(role)));
 
