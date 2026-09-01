@@ -143,9 +143,31 @@ public class FeedPost {
             String imageUrl = imageUrls.get(index);
 
             if (imageUrl != null && !imageUrl.isBlank()) {
-                photos.add(new FeedPhoto(this, imageUrl.trim(), index));
+                photos.add(new FeedPhoto(this, imageUrl.trim(), null, index));
             }
         }
+    }
+
+    /**
+     * S3 업로드가 완료된 사진 한 장을 게시글에 연결합니다.
+     *
+     * FeedPhoto 생성 시 this를 전달하므로
+     * 게시글과 사진의 연관관계가 함께 설정됩니다.
+     */
+
+    public void addPhoto(
+            String objectKey,
+            String originalFileName,
+            int sortOrder
+    ) {
+        photos.add(
+                new FeedPhoto(
+                        this,
+                        objectKey,
+                        originalFileName,
+                        sortOrder
+                )
+        );
     }
 
     public void increaseLikeCount() {

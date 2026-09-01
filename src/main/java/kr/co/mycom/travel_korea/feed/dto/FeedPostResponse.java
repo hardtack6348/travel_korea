@@ -6,6 +6,7 @@ import kr.co.mycom.travel_korea.feed.domain.FeedPost;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.function.Function;
 
 public record FeedPostResponse(
         Long id,
@@ -36,7 +37,8 @@ public record FeedPostResponse(
     public static FeedPostResponse from(
             FeedPost post,
             boolean liked,
-            boolean bookmarked
+            boolean bookmarked,
+            Function<String, String> imageUrlResolver
     ) {
         return new FeedPostResponse(
                 post.getId(),
@@ -54,6 +56,7 @@ public record FeedPostResponse(
                 post.getTourContentTypeId(),
                 post.getPhotos().stream()
                         .map(FeedPhoto::getImageUrl)
+                        .map(imageUrlResolver)
                         .toList(),
                 List.copyOf(post.getTags()),
                 post.getLikeCount(),

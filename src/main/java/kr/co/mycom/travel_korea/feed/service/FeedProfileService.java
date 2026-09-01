@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.feed.service;
 
+import kr.co.mycom.travel_korea.board.storage.StorageService;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.feed.domain.FeedLike;
 import kr.co.mycom.travel_korea.feed.domain.FeedPost;
@@ -30,6 +31,7 @@ public class FeedProfileService {
     private final FeedProfileRepository feedProfileRepository;
     private final FeedPostRepository feedPostRepository;
     private final FeedLikeRepository feedLikeRepository;
+    private final StorageService  storageService;
 
     /**
      * 로그인 회원의 SNS 프로필과 작성 게시글을 반환합니다.
@@ -57,7 +59,7 @@ public class FeedProfileService {
          * 같은 방식으로 추가할 수 있습니다.
          */
         List<FeedPostResponse> posts = postPage.getContent().stream()
-                .map(post -> FeedPostResponse.from(post, false, false)).toList();
+                .map(post -> FeedPostResponse.from(post, false, false, this::toReadableImageUrl)).toList();
 
         long receivedLikeCount = feedLikeRepository.countByFeedPost_Author_Id(user.getId());
 
@@ -123,5 +125,23 @@ public class FeedProfileService {
             throw new IllegalArgumentException("피드 아이디는 영문 소문자, 숫자, 언더바로 3~20자만 입력할 수 있습니다.");
         }
         return normalized;
+    }
+
+    /**
+     * DB에 저장된 S3 objectKey를 브라우저에서 열 수 있는
+     * Presigned URL로 변환합니다.
+     *
+     * 기존 데이터가 완성된 http URL인 경우에는 그대로 반환합니다.
+     */
+    private String toReadableImageUrl(String imageValue) {
+        if (imageValue == null || imageValue.isBlank()) {
+            return null;
+        }
+
+        if (imageValue.startsWith("http://") || imageValue.startsWith("https://")) {
+            return imageValue;
+        }
+
+        return storageService.createReadUrl(imageValue);
     }
 }

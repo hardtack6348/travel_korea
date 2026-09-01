@@ -10,10 +10,13 @@ import kr.co.mycom.travel_korea.feed.service.FeedService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.swing.*;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -43,12 +46,14 @@ public class FeedController {
         return ResponseEntity.ok(feedService.getOne(postId, extractOptionalEmail(authorization)));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FeedPostResponse> create(@RequestHeader(HttpHeaders.AUTHORIZATION) String autorization,
-                                                   @Valid @RequestBody FeedCreateRequest request) {
+                                                   @Valid @RequestPart("post") FeedCreateRequest request,
+                                                   @RequestPart(value = "images", required = false)List<MultipartFile> images) {
         FeedPostResponse response = feedService.create(
                 extractRequiredEmail(autorization),
-                request
+                request,
+                images
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

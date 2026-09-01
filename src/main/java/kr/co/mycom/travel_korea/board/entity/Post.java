@@ -48,18 +48,20 @@ public class Post {
         this.updatedAt = now;
     }
 
-    public void addImages(PostImage images) {
-        images.add(images);
+    /**
+     * 게시글에 이미지 한 장을 연결합니다.
+     *
+     * 양방향 연관관계이므로 게시글의 이미지 목록에 추가하고,
+     * 이미지 객체에도 현재 게시글을 설정해야 합니다.
+     */
+
+    public void addImage(PostImage images) {
+        this.images.add(images);
         images.setPost(this);
     }
 
     public void increseViewCount() {
         this.viewCount +=1;
-    }
-
-    public void addImage(PostImage image) {
-        images.add(image);
-        image.setPost(this);
     }
 
     public void update(String title, String content, String author) {

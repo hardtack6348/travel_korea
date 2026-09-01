@@ -8,6 +8,7 @@ import kr.co.mycom.travel_korea.board.repository.PostRepository;
 import kr.co.mycom.travel_korea.board.storage.StorageService;
 import kr.co.mycom.travel_korea.board.storage.StoredObject;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -61,7 +62,11 @@ public class PostService {
             for (MultipartFile image : safeImages) {
                 StoredObject stored = storageService.upload(image);
                 uploadedKeys.add(stored.objectKey());
-                post.addImages(new PostImage(stored.objectKey(), stored.originalFilename(), stored.contentType(), stored.size()
+                post.addImage(new PostImage(
+                        stored.objectKey(),
+                        stored.originalFilename(),
+                        stored.contentType(),
+                        stored.size()
                 ));
             }
             Post saved = repo.save(post);
@@ -107,9 +112,7 @@ public class PostService {
         if(files == null || files.isEmpty()) return List.of();
         return files.stream().filter(f-> f!= null&& !f.isEmpty()).toList();
     }
-    private void validateImageCount(int size) {
 
-    }
     @Transactional
     public PostAdminResponse get(Long postId) {
         Post post = findPost(postId);
@@ -155,11 +158,100 @@ public class PostService {
 //            throw e;
 //        }
 //    }
+
+    /**
+     * 이미지 없이 제목, 내용, 작성자만 수정합니다.
+     */
+
     @Transactional
     public PostAdminResponse update(Long id, PostUpdateRequest request) {
         Post post = findPost(id);
+
+        post.update(
+                request.title(),
+                request.content(),
+                request.author()
+        );
+
+        /*
+         * JPA 변경 감지가 트랜잭션 종료 시 UPDATE 쿼리를 실행합니다.
+         */
+
         return toDetail(post);
 
     }
 
+    /**
+     * 공지사항의 텍스트와 이미지를 함께 수정합니다.
+     *
+     * - removeImageIds: 기존 이미지 삭제 대상
+     * - images: 새로 추가할 이미지
+     */
+
+    @Transactional
+    public PostAdminResponse update(Long id, PostUpdateRequest request, List<MultipartFile> images) {
+        Post post = findPost(id);
+
+        Set<Long> removeImageIds = new HashSet<>(request.safeRemoveImageIds());
+
+        List<PostImage> removingImages = post.getImages().stream()
+                .filter(image -> removeImageIds.contains(image.getId()))
+                .toList();
+
+        List<MultipartFile> newImages = normalizeFiles(images);
+
+        int remainingImageCount = post.getImages().size() - removingImages.size();
+
+        validateImageCount(remainingImageCount + newImages.size());
+
+        List<String> uploadedKeys = new ArrayList<>();
+
+        try {
+            // 새 이미지를 S3에 업로드하고 게시글과 연결
+            for (MultipartFile image : newImages) {
+                StoredObject stored = storageService.upload(image);
+                uploadedKeys.add(stored.objectKey());
+
+                post.addImage(new PostImage(
+                        stored.objectKey(),
+                        stored.originalFilename(),
+                        stored.contentType(),
+                        stored.size()
+                ));
+            }
+            // 텍스트 정보를 수정
+            post.update(
+                    request.title(),
+                    request.content(),
+                    request.author()
+            );
+
+            // 삭제 요청된 기존 이미지를 DB와 S3에서 삭제
+            for (PostImage image : removingImages) {
+                post.removeImage(image);
+                safeDelete(image.getObjectKey());
+            }
+
+            return toDetail(post);
+        } catch (RuntimeException exception) {
+            /*
+             * 업로드 중 예외가 발생하면 이번 요청에서 새로 업로드한
+             * S3 파일만 정리합니다.
+             */
+            uploadedKeys.forEach(this::safeDelete);
+            throw exception;
+        }
+    }
+
+    @Value("${app.upload.max-image-count}")
+    private int maxImageCount;
+
+    /**
+     * 공지사항 하나에 등록할 수 있는 이미지 개수를 제한합니다.
+     */
+    private void validateImageCount(int size) {
+        if (size > maxImageCount) {
+            throw new IllegalArgumentException("이미지는 최대 " + maxImageCount + "장까지 등록할 수 있습니다.");
+        }
+    }
 }

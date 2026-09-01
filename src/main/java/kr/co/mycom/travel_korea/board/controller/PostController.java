@@ -38,10 +38,20 @@ public class PostController {
     public PostAdminResponse getForEdit(@PathVariable Long noticeId){
         return postService.getWithoutIncreasingView(noticeId);
     }
+
+    /**
+     * 관리자 공지사항을 생성합니다.
+     *
+     * 생성된 게시글 정보를 응답으로 반환해야
+     * 프론트가 생성 직후 상세 화면 또는 목록으로 이동할 수 있습니다.
+     */
+
     @PostMapping("/admin/notices")
     public ResponseEntity<PostAdminResponse> createNotices(@RequestBody PostCreateRequest request){
-       postService.create(request);
-       return ResponseEntity.status(HttpStatus.CREATED).build();
+
+        PostAdminResponse response = postService.create(request);
+
+       return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
 //    @PostMapping(value = "/admin/notices",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,8 +69,7 @@ public class PostController {
             @RequestPart("post") PostUpdateRequest request,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
-//        return postService.update(noticeId, request, images);
-        return postService.update(noticeId, request);
+        return postService.update(noticeId, request, images);
 
     }
 
