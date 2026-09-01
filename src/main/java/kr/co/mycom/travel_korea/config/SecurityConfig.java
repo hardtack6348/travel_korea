@@ -42,7 +42,7 @@ public class SecurityConfig {
                        .requestMatchers("/api/v1/notices", "/api/v1/notices/**").permitAll()
 
                        // 기존 공개 여행 정보 조회
-                       .requestMatchers("/api/v1/home", "/api/v1/search", "/api/v1/regions/**", "/api/v1/festivals/**").permitAll()
+                       .requestMatchers("/api/v1/home", "/api/v1/search", "/api/v1/regions/**", "/api/v1/classifications", "/api/v1/festivals/**").permitAll()
 
                        // 공개 피드 조회
                        .requestMatchers(HttpMethod.GET, "/api/v1/feed/posts/**").permitAll()

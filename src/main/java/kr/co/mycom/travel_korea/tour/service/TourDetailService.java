@@ -6,6 +6,7 @@ import kr.co.mycom.travel_korea.tour.dto.external.TourApiDetailIntroItem;
 import kr.co.mycom.travel_korea.tour.dto.response.TourDetailInfoResponse;
 import kr.co.mycom.travel_korea.tour.dto.response.TourDetailResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,7 +22,16 @@ public class TourDetailService {
 
     /**
      * 콘텐츠 ID와 유형을 기준으로 TourAPI 상세 정보를 조회합니다.
+     *
+     * 같은 상세 페이지를 다시 열 때 detailCommon2·detailIntro2를 재호출하지 않도록
+     * Caffeine 캐시에 결과를 저장합니다. contentId는 콘텐츠를 식별하고,
+     * contentTypeId는 유형별 detailIntro 응답을 구분하므로 둘 다 캐시 키에 포함합니다.
      */
+    @Cacheable(
+            cacheNames = "tourLists",
+            key = "'detail:' + #contentId + ':' + #contentTypeId",
+            sync = true
+    )
     public TourDetailResponse getDetail(String contentId, Integer contentTypeId) {
         validateContentType(contentTypeId);
 
