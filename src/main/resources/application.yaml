@@ -1,4 +1,18 @@
 spring:
+  cache:
+    type: caffeine
+    cache-names:
+      - tourLists
+      - homeTours
+      - recommendedCourses
+      - tourCourseIntro
+      - tourCourseDetails
+      - tourRegions
+      - tourDistricts
+    caffeine:
+      # TourAPI 개발계정의 일일 1,000회 제한을 보호하기 위해
+      # 동일 조건의 조회 결과를 1시간 동안 재사용합니다.
+      spec: maximumSize=1000,expireAfterWrite=1h
   mail:
     host: smtp.gmail.com
     port: 587
@@ -55,8 +69,32 @@ spring:
   application:
     name: travel_korea
 server:
-  port: 8080
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
+  port: ${SERVER_PORT}
 jwt:
   secret: QfvEunKI05ZNTFi11wTvArkScyZF1r8/vHxs7Tj8xxI=
   access-expiration: 1800000       # 30분 (1000 * 60 * 30)
   refresh-expiration: 604800000    # 7일 (1000 * 60 * 60 * 24 * 7)
+#tour-api-key: ${TOUR_API}
+tour-api:
+  base-url: https://apis.data.go.kr/B551011/KorService2
+  service-key: ${TOUR_API}
+  mobile-os: ETC
+  mobile-app: WayLog
+  connect-timeout: 5s
+  read-timeout: 10s
+app:
+  cors:
+    frontend-origin: ${FRONTEND_ORIGEN}
+  upload:
+    max-image-count: 5
+  storage:
+    type: ${STORAGE_TYPE}
+  max-file-size-byte: 10485760
+  s3:
+    bucket: ${S3_BUCKET}
+    region: ${AWS_REGION}
+    presigned-url-minutes: 15

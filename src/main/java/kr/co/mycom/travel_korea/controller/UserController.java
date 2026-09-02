@@ -20,25 +20,22 @@ public class UserController {
     private final UserService service;
 
     @GetMapping("users/check-email")
-    public ResponseEntity checkEmail(@RequestParam("email") String email) {
-        if (service.existEmail(email)) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("available", false);
-            ResponseEntity.status(HttpStatus.OK).body(response);
-        }else{
-            System.out.println("존재하지 않음");
-        }
-        return ResponseEntity.ok(service.findUserInfo(email));
+    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestParam("email") String email) {
+        /*
+         * 이미 존재하면 available=false,
+         * 존재하지 않으면 available=true를 반환합니다.
+         */
+        boolean available = !service.existEmail(email);
+
+        return ResponseEntity.ok(Map.of("available", available));
     }
 
     @GetMapping("users/check-nickname")
-    public ResponseEntity checkNickname(@RequestParam("nickname") String nickname) {
-        if (service.existNickname(nickname)){
-            Map<String, Object> response = new HashMap<>();
-            response.put("available", false);
-            return ResponseEntity.status(HttpStatus.OK).body(response);
-        }
-        return new ResponseEntity<>(nickname, HttpStatus.OK);
+    public ResponseEntity<Map<String, Boolean>> checkNickname(@RequestParam("nickname") String nickname) {
+
+        boolean available = !service.existNickname(nickname);
+
+        return ResponseEntity.ok(Map.of("available", available));
     }
 
 

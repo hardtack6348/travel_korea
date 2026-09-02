@@ -1,7 +1,9 @@
 package kr.co.mycom.travel_korea.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -11,7 +13,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -19,26 +25,44 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable()) //jwt토큰을 사용하므로 csrf비활성화 -> localstorage에 저장시 비활성화 아니면 활성화
-//                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)//security에서 사용하는 session 비활성화
-//                .and()
-                .authorizeHttpRequests(auth ->auth.anyRequest().permitAll());
-//                .oauth2Login(Customizer.withDefaults());
-//                .antMatchers("/api/v1/img/").permitAll()
-//                .antMatchers("/api/v1/auth/n/").permitAll() // 사용자  토큰x
-//                .antMatchers("/api/v1/auth/y/**").hasAnyAuthority("ROLE_USER", "ROLE_TT_ADMIN", "ROLE_ST_ADMIN") // 사용자  토큰o
-//                .antMatchers("/api/v1/main/").permitAll() // 모든 사용자
-//                .antMatchers("/api/v1/admin/").hasAnyAuthority("ROLE_TT_ADMIN") // 최고 관리자
-//                .antMatchers("/api/v1/store/admin/").hasAnyAuthority("ROLE_ST_ADMIN", "ROLE_TT_ADMIN") // 가맹점 관리자
-//                .antMatchers("/api/v1/store/").permitAll()
-//                .authenticated()  // 나머지 요청은 인증이 필요함
+       http
+               .csrf(csrf -> csrf.disable())
 
-//                .exceptionHandling().authenticationEntryPoint(new CustomAuthenticationEntryPoint())  // 사용자 인증 실패 처리
-//                .accessDeniedHandler(new CustomAccessDeniedHandler())  // 권한 없음 처리
-//                .and()
-//                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class) // 사용자 인증 필터 추가
-//                .addFilterBefore(new JwtExceptionFilter(), JwtAuthenticationFilter.class);  // JWT 예외 처리 필터 추가
-        return http.build();
+                /*
+                 * JWT 방식이므로 서버 세션을 생성하지 않습니다.
+                 */
+               .sessionManagement(session ->
+                       session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+               )
+               .authorizeHttpRequests(auth -> auth
+                                // 로그인, 회원가입, 비밀번호 찾기는 비로그인 접근 허용
+                               .requestMatchers("/api/v1/auth/**").permitAll()
+                       .requestMatchers("/error").permitAll()
+                                // 공지 목록과 상세 조회는 모든 사용자에게 공개
+                       .requestMatchers("/api/v1/notices", "/api/v1/notices/**").permitAll()
+
+                       // 기존 공개 여행 정보 조회
+                       .requestMatchers("/api/v1/home", "/api/v1/search", "/api/v1/regions/**", "/api/v1/classifications", "/api/v1/festivals/**").permitAll()
+
+                       // 공개 피드 조회
+                       .requestMatchers(HttpMethod.GET, "/api/v1/feed/posts/**").permitAll()
+                       .requestMatchers(HttpMethod.GET, "/api/v1/tour/contents/**").permitAll()
+                       /*
+                        * 공지 등록·수정·삭제는 관리자만 허용합니다.
+                        *
+                        * DB GRADE가 ADMIN이면 ROLE_ADMIN을 사용합니다.
+                        */
+                       .requestMatchers("/api/v1/admin/**")
+                       .hasAuthority("ROLE_ADMIN")
+
+                       // 나머지 API는 로그인 사용자만 접근
+                       .anyRequest().authenticated()
+               )
+               /*
+                * JWT 인증 Filter를 기본 로그인 Filter 이전에 실행합니다.
+                */
+               .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+            return http.build();
     }
 }
