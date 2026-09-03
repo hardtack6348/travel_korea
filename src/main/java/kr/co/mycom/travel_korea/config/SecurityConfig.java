@@ -37,6 +37,15 @@ public class SecurityConfig {
                .authorizeHttpRequests(auth -> auth
                                 // 로그인, 회원가입, 비밀번호 찾기는 비로그인 접근 허용
                                .requestMatchers("/api/v1/auth/**").permitAll()
+                       /*
+                        * 회원가입 전에 사용하는 중복확인 API입니다.
+                        * 로그인하지 않은 사용자도 호출할 수 있어야 합니다.
+                        */
+                       .requestMatchers(
+                               HttpMethod.GET,
+                               "/api/v1/users/check-email",
+                               "/api/v1/users/check-nickname"
+                       ).permitAll()
                        .requestMatchers("/error").permitAll()
                                 // 공지 목록과 상세 조회는 모든 사용자에게 공개
                        .requestMatchers("/api/v1/notices", "/api/v1/notices/**").permitAll()
