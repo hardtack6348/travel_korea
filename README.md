@@ -73,7 +73,7 @@ sequenceDiagram
     C->>S: API 요청 (Authorization: Bearer Access Token)
     S-->>C: 응답
 
-    Note over C,S: Access Token 만료 (30분)
+    Note over C,S: Access Token 만료 (5분)
     C->>S: POST /api/v1/auth/refresh (Refresh Token 쿠키 자동 전송)
     alt Refresh Token 유효
         S-->>C: 새 Access Token
@@ -82,7 +82,7 @@ sequenceDiagram
     end
 ```
 
-- **Access Token**: 응답 본문으로 전달, 유효기간 30분
+- **Access Token**: 응답 본문으로 전달, 유효기간 5분. 탈취되더라도 쓸 수 있는 시간을 줄이기 위해 짧게 두고, 만료되면 Refresh Token으로 다시 발급받습니다.
 - **Refresh Token**: `HttpOnly` · `Secure` · `SameSite=Strict` 쿠키로 전달, 유효기간 7일. JavaScript에서 읽을 수 없어 XSS로 탈취되기 어렵고, 다른 사이트에서 보낸 요청에는 쿠키가 실리지 않습니다.
 - URL별 접근 권한: 비회원 조회 허용(여행 정보, 공지사항, 피드 조회), 회원 전용, 관리자 전용(`/api/v1/admin/**`)
 
