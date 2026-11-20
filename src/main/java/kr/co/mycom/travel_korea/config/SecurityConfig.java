@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +11,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 
 @Configuration
@@ -61,10 +65,32 @@ public class SecurityConfig {
                        .anyRequest().authenticated()
                )
                /*
+                * 인증 실패와 권한 부족을 구분해 응답합니다.
+                * - 401: 토큰이 없거나, 잘못됐거나, 만료됨 → 프론트엔드는 /refresh로 재발급을 시도합니다.
+                * - 403: 로그인은 했지만 권한이 없음(예: 일반 회원이 관리자 API 호출) → 재발급해도 소용없습니다.
+                * 설정하지 않으면 Spring Security 기본값으로 두 경우 모두 403이 반환됩니다.
+                */
+               .exceptionHandling(exception -> exception
+                       .authenticationEntryPoint((request, response, authException) ->
+                               writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                                       "로그인이 필요하거나 인증이 만료되었습니다."))
+                       .accessDeniedHandler((request, response, accessDeniedException) ->
+                               writeError(response, HttpServletResponse.SC_FORBIDDEN,
+                                       "이 요청에 대한 권한이 없습니다."))
+               )
+               /*
                 * JWT 인증 Filter를 기본 로그인 Filter 이전에 실행합니다.
                 */
                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
             return http.build();
+    }
+
+    // 다른 API의 오류 응답과 같은 형태({"message": "..."})로 JSON을 씁니다. 메시지는 고정 문구라 이스케이프가 필요 없습니다.
+    private static void writeError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"message\":\"" + message + "\"}");
     }
 }
