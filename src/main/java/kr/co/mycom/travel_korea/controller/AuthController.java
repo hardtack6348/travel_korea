@@ -7,11 +7,13 @@ import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.entity.UserEntity;
 import kr.co.mycom.travel_korea.request.MailRequest;
 import kr.co.mycom.travel_korea.request.UserRequest;
+import kr.co.mycom.travel_korea.response.SignupResponse;
 import kr.co.mycom.travel_korea.service.AuthService;
 import kr.co.mycom.travel_korea.service.UserService;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,8 +29,10 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/signup")
-    public UserEntity signup(@RequestBody UserRequest request) {
-        return service.signup(request);
+    public ResponseEntity<SignupResponse> signup(@RequestBody UserRequest request) {
+        // 엔티티를 그대로 반환하지 않고, 비밀번호 해시 등을 뺀 응답 DTO로 변환합니다.
+        UserEntity saved = service.signup(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(SignupResponse.from(saved));
     }
 
     @PostMapping("/login")
