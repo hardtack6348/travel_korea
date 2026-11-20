@@ -17,7 +17,7 @@
 | 인증 / 보안 | Spring Security + JWT 인증, 회원가입·로그인·로그아웃·토큰 재발급, 이메일 인증, 비밀번호 재설정 |
 | 게시판 | 공지사항 게시판과 댓글 CRUD, 키워드 검색과 페이징, 조회수 |
 | 여행 정보 | TourAPI 기반 여행코스 API, 시·도 / 시·군·구 지역 코드와 관광 분류코드 조회 |
-| 리팩터링 | 보안 취약점 5건 수정, 서버 중복 검사, 단위 테스트 작성, 설정 정리 ([#6](https://github.com/hardtack6348/travel_korea/pull/6), [#7](https://github.com/hardtack6348/travel_korea/pull/7), [#9](https://github.com/hardtack6348/travel_korea/pull/9), [#10](https://github.com/hardtack6348/travel_korea/pull/10), [#12](https://github.com/hardtack6348/travel_korea/pull/12)) |
+| 리팩터링 | 보안 취약점 5건 수정, 서버 중복 검사, 401/403 구분, 테스트 작성, 설정 정리 ([#6](https://github.com/hardtack6348/travel_korea/pull/6), [#7](https://github.com/hardtack6348/travel_korea/pull/7), [#9](https://github.com/hardtack6348/travel_korea/pull/9), [#10](https://github.com/hardtack6348/travel_korea/pull/10), [#12](https://github.com/hardtack6348/travel_korea/pull/12), [#14](https://github.com/hardtack6348/travel_korea/pull/14), [#15](https://github.com/hardtack6348/travel_korea/pull/15)) |
 
 팀원 담당: TourAPI 연동 클라이언트와 여행지·상세 페이지, 여행 피드(SNS), S3 이미지 업로드, 여행지 북마크
 
@@ -74,9 +74,13 @@ sequenceDiagram
     S-->>C: 응답
 
     Note over C,S: Access Token 만료 (5분)
+    C->>S: API 요청 (만료된 Access Token)
+    S-->>C: 401 Unauthorized
     C->>S: POST /api/v1/auth/refresh (Refresh Token 쿠키 자동 전송)
     alt Refresh Token 유효
         S-->>C: 새 Access Token
+        C->>S: 원래 요청 다시 전송
+        S-->>C: 응답
     else 만료 · 위조 · 회원 없음
         S-->>C: 401 + 쿠키 삭제 → 다시 로그인
     end
@@ -84,6 +88,7 @@ sequenceDiagram
 
 - **Access Token**: 응답 본문으로 전달, 유효기간 5분. 탈취되더라도 쓸 수 있는 시간을 줄이기 위해 짧게 두고, 만료되면 Refresh Token으로 다시 발급받습니다.
 - **Refresh Token**: `HttpOnly` · `Secure` · `SameSite=Strict` 쿠키로 전달, 유효기간 7일. JavaScript에서 읽을 수 없어 XSS로 탈취되기 어렵고, 다른 사이트에서 보낸 요청에는 쿠키가 실리지 않습니다.
+- **401과 403 구분**: 토큰이 없거나 잘못됐거나 만료되면 401, 로그인은 했지만 권한이 없으면 403을 반환합니다. 프론트엔드 공통 API([wayLog `src/api/client.js`](https://github.com/hardtack6348/wayLog/blob/main/src/api/client.js))는 401일 때만 재발급 후 원래 요청을 다시 보내고, 동시에 여러 요청이 401을 받아도 재발급은 한 번만 요청합니다.
 - URL별 접근 권한: 비회원 조회 허용(여행 정보, 공지사항, 피드 조회), 회원 전용, 관리자 전용(`/api/v1/admin/**`)
 
 <br>
@@ -199,15 +204,25 @@ sequenceDiagram
 - 중복으로 실패해도 이메일 인증은 유지되어 닉네임만 바꿔 다시 가입할 수 있도록 처리
 - 프론트엔드의 중복 확인을 실제 API 응답(`available`)에 맞게 수정하고, 409를 받으면 안내 후 입력 단계로 이동 ([wayLog #8](https://github.com/hardtack6348/wayLog/pull/8))
 
-### 6. 세션 인증에서 JWT 인증으로 전환
+### 6. 만료된 토큰에도 403이 반환되어 자동 재발급을 할 수 없던 문제 ([#15](https://github.com/hardtack6348/travel_korea/pull/15))
+
+**문제**
+Access Token 유효시간을 30분에서 5분으로 줄이면서([#14](https://github.com/hardtack6348/travel_korea/pull/14)), 만료되면 프론트엔드가 자동으로 재발급받도록 하려고 했습니다. 그런데 Spring Security에 인증 실패 처리를 설정하지 않아, 토큰이 없거나 만료돼도 기본값인 403이 반환되고 있었습니다. 권한이 없는 경우와 응답이 같아 프론트엔드가 재발급이 필요한지 판단할 수 없었습니다.
+
+**해결**
+- `authenticationEntryPoint`로 인증 실패는 401, `accessDeniedHandler`로 권한 부족은 403을 반환하고 둘 다 `{"message"}` 본문을 담도록 설정
+- 실제 서버를 띄워 HTTP로 상태 코드를 확인하는 통합 테스트 4개 추가. 수정 전에 먼저 실행해 401 기대 테스트가 403으로 실패하는 것을 확인
+- 프론트엔드에 공통 API 클라이언트를 만들어 모든 요청에 Access Token을 붙이고, 401을 받으면 재발급 후 원래 요청을 다시 보내도록 구현 ([wayLog #9](https://github.com/hardtack6348/wayLog/pull/9))
+
+### 7. 세션 인증에서 JWT 인증으로 전환
 
 교육 과정에서는 세션 인증을 배웠지만, 이 프로젝트는 프론트엔드와 백엔드가 분리된 구조였습니다. 모바일 환경 대응과 서버를 늘렸을 때의 세션 공유 문제를 고려해, 서버가 로그인 상태를 저장하지 않는 JWT 방식으로 전환했습니다.
 
-### 7. 레포를 합치는 과정에서 DB 연결이 반복해서 실패한 문제
+### 8. 레포를 합치는 과정에서 DB 연결이 반복해서 실패한 문제
 
 프론트엔드와 백엔드 레포를 분리해 개발하다 합치는 과정에서 DB 연결이 계속 실패했습니다. env 파일과 AWS 서버 설정을 점검해 DB 접속 정보를 환경 변수(`DB_URL`, `DB_USER`, `DB_PW`)로 분리하고 연결을 안정화했습니다.
 
-### 8. TourAPI 일일 호출 제한 대응
+### 9. TourAPI 일일 호출 제한 대응
 
 TourAPI 개발 계정은 하루 1,000회까지만 호출할 수 있어, 요청마다 API를 호출하면 개발 중에도 한도를 쉽게 넘길 수 있었습니다. 같은 조건의 조회 결과를 Caffeine 캐시에 1시간 동안 저장해 같은 요청이 반복될 때 API를 다시 호출하지 않도록 했습니다. 시·도, 시·군·구 지역 코드와 관광 분류코드처럼 거의 바뀌지 않는 데이터는 JSON 파일로 서버에 두고 읽어 오도록 했습니다.
 
