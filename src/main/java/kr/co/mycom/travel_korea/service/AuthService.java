@@ -24,6 +24,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import kr.co.mycom.travel_korea.common.exception.DuplicateMemberException;
 import kr.co.mycom.travel_korea.common.exception.EmailVerificationException;
 
 import java.security.SecureRandom;
@@ -62,6 +63,15 @@ public class AuthService {
 
     public UserEntity signup(UserRequest userInput) {
         requireVerified(userInput.getEmail(), VerificationPurpose.SIGNUP);
+
+        // 화면의 중복 확인을 거치지 않은 요청도 막기 위해 서버에서 다시 검사한다.
+        // 중복이면 인증 상태는 지우지 않아, 닉네임만 바꿔 다시 가입할 수 있다.
+        if (repo.existsByEmail(userInput.getEmail())) {
+            throw new DuplicateMemberException("이미 가입된 이메일입니다.");
+        }
+        if (repo.existsByNickname(userInput.getNickname())) {
+            throw new DuplicateMemberException("이미 사용 중인 닉네임입니다.");
+        }
 
         UserEntity rep = new UserEntity();
         rep.setCreated_at(LocalDateTime.now());

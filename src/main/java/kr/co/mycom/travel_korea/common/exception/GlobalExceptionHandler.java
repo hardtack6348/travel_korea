@@ -32,4 +32,14 @@ public class GlobalExceptionHandler {
                 Map.of("message", exception.getMessage())
         );
     }
+
+    /**
+     * 이미 가입된 이메일이나 사용 중인 닉네임으로 회원가입하면 409로 반환합니다.
+     */
+    @ExceptionHandler(DuplicateMemberException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateMember(DuplicateMemberException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                Map.of("message", exception.getMessage())
+        );
+    }
 }

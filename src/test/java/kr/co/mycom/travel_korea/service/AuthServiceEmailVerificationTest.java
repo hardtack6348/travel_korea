@@ -2,6 +2,7 @@ package kr.co.mycom.travel_korea.service;
 
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import kr.co.mycom.travel_korea.common.exception.DuplicateMemberException;
 import kr.co.mycom.travel_korea.common.exception.EmailVerificationException;
 import kr.co.mycom.travel_korea.config.JwtConfig;
 import kr.co.mycom.travel_korea.config.SecurityConfig;
@@ -162,5 +163,30 @@ class AuthServiceEmailVerificationTest {
         session.setAttribute("verificationExpiresAt", System.currentTimeMillis() - 1);
 
         assertEquals(HttpStatus.UNAUTHORIZED, confirm(EMAIL, sentCode()));
+    }
+
+    @Test
+    void 이미_가입된_이메일이면_가입할_수_없다() {
+        when(repo.existsByEmail(EMAIL)).thenReturn(true);
+        authService.sendCodeToEmail(EMAIL, VerificationPurpose.SIGNUP);
+        assertEquals(HttpStatus.OK, confirm(EMAIL, sentCode()));
+
+        assertThrows(DuplicateMemberException.class, () -> authService.signup(userRequest(EMAIL)));
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void 닉네임이_중복이면_가입할_수_없고_인증은_유지되어_다시_시도할_수_있다() {
+        when(repo.existsByNickname("tester")).thenReturn(true);
+        authService.sendCodeToEmail(EMAIL, VerificationPurpose.SIGNUP);
+        assertEquals(HttpStatus.OK, confirm(EMAIL, sentCode()));
+
+        assertThrows(DuplicateMemberException.class, () -> authService.signup(userRequest(EMAIL)));
+
+        // 닉네임을 바꾸면 같은 인증으로 가입할 수 있다.
+        UserRequest retry = userRequest(EMAIL);
+        retry.setNickname("another");
+        authService.signup(retry);
+        verify(repo).save(any(UserEntity.class));
     }
 }
