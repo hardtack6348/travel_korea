@@ -53,7 +53,7 @@ public class AuthController {
 
     @PostMapping("/email-verification")
     public void sendMessage(@RequestBody UserRequest request){
-        service.sendCodeToEmail(request.getEmail());
+        service.sendCodeToEmail(request.getEmail(), AuthService.VerificationPurpose.SIGNUP);
     }
 
     @PostMapping("/email-verification/confirm")
@@ -64,7 +64,7 @@ public class AuthController {
 
     @PostMapping("/password-reset-requests")
     public void sendPasswordResetMessage(@RequestBody UserRequest request){
-        service.sendCodeToEmail(request.getEmail());
+        service.sendCodeToEmail(request.getEmail(), AuthService.VerificationPurpose.PASSWORD_RESET);
     }
 
     @PutMapping("/password")

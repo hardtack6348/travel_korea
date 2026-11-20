@@ -1,5 +1,6 @@
 package kr.co.mycom.travel_korea.common.exception;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,6 +19,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(
+                Map.of("message", exception.getMessage())
+        );
+    }
+
+    /**
+     * 이메일 인증 없이 회원가입이나 비밀번호 변경을 요청하면 403으로 반환합니다.
+     */
+    @ExceptionHandler(EmailVerificationException.class)
+    public ResponseEntity<Map<String, String>> handleEmailVerification(EmailVerificationException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 Map.of("message", exception.getMessage())
         );
     }
