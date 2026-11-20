@@ -24,9 +24,11 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import kr.co.mycom.travel_korea.common.exception.EmailVerificationException;
+
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Random;
 
 @Service
 @Transactional
@@ -41,19 +43,37 @@ public class AuthService {
     private static final String EMAIL_KEY = "verificationEmail";
     private static final String CODE_KEY = "verificationCode";
     private static final String EXPIRES_AT_KEY = "verificationExpiresAt";
+    private static final String PURPOSE_KEY = "verificationPurpose";
+    private static final String ATTEMPTS_KEY = "verificationAttempts";
+    private static final String VERIFIED_UNTIL_KEY = "verificationVerifiedUntil";
+
+    // 인증번호 입력 최대 시도 횟수
+    static final int MAX_ATTEMPTS = 5;
+    // 인증 성공 후 회원가입/비밀번호 변경을 완료해야 하는 시간 (10분)
+    static final long VERIFIED_VALID_MILLIS = 10 * 60 * 1000L;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     @Value("${spring.mail.auth-code-expiration-millis}")
     private Long authCodeExpiration;
 
+    // 이메일 인증의 용도. 회원가입용 인증으로 비밀번호를 바꾸는 등 다른 용도로 쓰는 것을 막는다.
+    public enum VerificationPurpose { SIGNUP, PASSWORD_RESET }
+
     public UserEntity signup(UserRequest userInput) {
+        requireVerified(userInput.getEmail(), VerificationPurpose.SIGNUP);
+
         UserEntity rep = new UserEntity();
         rep.setCreated_at(LocalDateTime.now());
         rep.setEmail(userInput.getEmail());
         rep.setPassword(security.passwordEncoder().encode(userInput.getPassword()));
         rep.setNickname(userInput.getNickname());
         rep.setGrade("user");
-        return repo.save(rep);
+        UserEntity saved = repo.save(rep);
 
-
+        // 인증은 한 번만 사용할 수 있다.
+        clearVerification(session);
+        return saved;
     }
 
     public ResponseEntity login(@RequestBody UserRequest request) throws JOSEException {
@@ -146,37 +166,82 @@ public class AuthService {
 
 
 
-    public ResponseEntity emailVerificationConfirm(MailRequest request) {
-//        이메일 인증번호 확인
-        if(System.currentTimeMillis() > (long)session.getAttribute(EXPIRES_AT_KEY)){
+    public ResponseEntity<Map<String, Object>> emailVerificationConfirm(MailRequest request) {
+        // 이메일 인증번호 확인
+        String savedEmail = (String) session.getAttribute(EMAIL_KEY);
+        Integer savedCode = (Integer) session.getAttribute(CODE_KEY);
+        Long expiresAt = (Long) session.getAttribute(EXPIRES_AT_KEY);
+
+        // 인증번호를 요청하지 않았거나 이미 인증을 마친 경우
+        if (savedEmail == null || savedCode == null || expiresAt == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "인증번호를 먼저 요청해 주세요."));
+        }
+
+        if (System.currentTimeMillis() > expiresAt) {
             clearVerification(session);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "인증번호가 만료되었습니다. 다시 요청해 주세요."));
         }
-        String verifiedEmail = (String)session.getAttribute(EMAIL_KEY);
-        Integer verifiedCode = (Integer)session.getAttribute(CODE_KEY);
-        if (    verifiedEmail.equals(request.getEmail()) &&
-                verifiedCode.equals(request.getAuthCode())){
-            return ResponseEntity.ok().build();
+
+        Integer savedAttempts = (Integer) session.getAttribute(ATTEMPTS_KEY);
+        int attempts = savedAttempts == null ? 0 : savedAttempts;
+        if (attempts >= MAX_ATTEMPTS) {
+            clearVerification(session);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("message", "입력 횟수를 초과했습니다. 인증번호를 다시 요청해 주세요."));
         }
-        System.out.println(verifiedEmail);
-        System.out.println(verifiedCode);
-        System.out.println(request.getEmail());
-        System.out.println(request.getAuthCode());
-        System.out.println(request);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!savedEmail.equals(request.getEmail()) || !savedCode.equals(request.getAuthCode())) {
+            attempts++;
+            session.setAttribute(ATTEMPTS_KEY, attempts);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "message", "인증번호가 올바르지 않습니다.",
+                            "remainingAttempts", MAX_ATTEMPTS - attempts
+                    ));
+        }
+
+        // 인증 성공: 인증번호는 지우고, 인증 완료 상태를 10분간 유지한다.
+        session.removeAttribute(CODE_KEY);
+        session.removeAttribute(EXPIRES_AT_KEY);
+        session.removeAttribute(ATTEMPTS_KEY);
+        session.setAttribute(VERIFIED_UNTIL_KEY, System.currentTimeMillis() + VERIFIED_VALID_MILLIS);
+        return ResponseEntity.ok(Map.of("message", "이메일 인증이 완료되었습니다."));
     }
 
     public void changePassword(UserRequest request) {
+        requireVerified(request.getEmail(), VerificationPurpose.PASSWORD_RESET);
+
         UserEntity user = repo.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("해당 이메일의 회원을 찾을 수 없습니다."));
         user.setPassword(security.passwordEncoder().encode(request.getPassword()));
         repo.save(user);
+
+        // 인증은 한 번만 사용할 수 있다.
+        clearVerification(session);
     }
 
-    public void sendCodeToEmail(String email) {
+    // 해당 이메일이 해당 용도로 인증을 마쳤는지 확인한다. 아니면 403을 반환하도록 예외를 던진다.
+    private void requireVerified(String email, VerificationPurpose purpose) {
+        String verifiedEmail = (String) session.getAttribute(EMAIL_KEY);
+        Object verifiedPurpose = session.getAttribute(PURPOSE_KEY);
+        Long verifiedUntil = (Long) session.getAttribute(VERIFIED_UNTIL_KEY);
+
+        boolean verified = email != null
+                && email.equals(verifiedEmail)
+                && purpose == verifiedPurpose
+                && verifiedUntil != null
+                && System.currentTimeMillis() <= verifiedUntil;
+
+        if (!verified) {
+            throw new EmailVerificationException("이메일 인증을 먼저 완료해 주세요.");
+        }
+    }
+
+    public void sendCodeToEmail(String email, VerificationPurpose purpose) {
         // 확인코드 담긴 이메일 발송
         String title = "Waylog 이메일 인증 번호";
-        Random random = new Random();
-        int checkNum = random.nextInt(888888) + 111111;
+        int checkNum = SECURE_RANDOM.nextInt(900000) + 100000; // 100000 ~ 999999
         String content =
                 "<!DOCTYPE html>"
                         + "<html>"
@@ -218,14 +283,17 @@ public class AuthService {
                         + "</html>";
         try {
             createEmailForm(email, title, content);
+            // 인증번호를 다시 발급하면 이전 인증 정보와 인증 완료 상태를 모두 해제
+            clearVerification(session);
             // 인증번호 관련 정보를 세션에 저장
             session.setAttribute(EMAIL_KEY, email);
             session.setAttribute(CODE_KEY, checkNum);
+            session.setAttribute(PURPOSE_KEY, purpose);
+            session.setAttribute(ATTEMPTS_KEY, 0);
             session.setAttribute(
                     EXPIRES_AT_KEY,
                     System.currentTimeMillis() + authCodeExpiration
             );
-            // 인증번호를 다시 발급하면 이전 인증 완료 상태를 해제
         } catch (Exception e) {
             e.printStackTrace();
             // 또는 로거를 사용하여 상세한 예외 정보 로깅
@@ -238,6 +306,9 @@ public class AuthService {
         session.removeAttribute(EMAIL_KEY);
         session.removeAttribute(CODE_KEY);
         session.removeAttribute(EXPIRES_AT_KEY);
+        session.removeAttribute(PURPOSE_KEY);
+        session.removeAttribute(ATTEMPTS_KEY);
+        session.removeAttribute(VERIFIED_UNTIL_KEY);
     }
 
 }
