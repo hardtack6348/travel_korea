@@ -76,7 +76,7 @@ server:
   port: ${SERVER_PORT}
 jwt:
   secret: ${JWT_SECRET}
-  access-expiration: 1800000       # 30분 (1000 * 60 * 30)
+  access-expiration: 300000        # 5분 (1000 * 60 * 5)
   refresh-expiration: 604800000    # 7일 (1000 * 60 * 60 * 24 * 7)
 #tour-api-key: ${TOUR_API}
 tour-api:
