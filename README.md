@@ -194,6 +194,7 @@ TourAPI 개발 계정은 하루 1,000회까지만 호출할 수 있어, 요청�
 | --- | --- |
 | `SERVER_PORT` | 서버 포트 |
 | `DB_URL` / `DB_USER` / `DB_PW` | MySQL 접속 정보 |
+| `JWT_SECRET` | JWT 서명 키 (HS256, 32바이트 이상의 무작위 문자열) |
 | `MAIL_USERNAME` / `MAIL_PW` | Gmail 계정과 앱 비밀번호 |
 | `TOUR_API` | 공공데이터포털 TourAPI 서비스 키 |
 | `FRONTEND_ORIGEN` | CORS 허용 프론트엔드 주소 |
