@@ -17,7 +17,7 @@
 | 인증 / 보안 | Spring Security + JWT 인증, 회원가입·로그인·로그아웃·토큰 재발급, 이메일 인증, 비밀번호 재설정 |
 | 게시판 | 공지사항 게시판과 댓글 CRUD, 키워드 검색과 페이징, 조회수 |
 | 여행 정보 | TourAPI 기반 여행코스 API, 시·도 / 시·군·구 지역 코드와 관광 분류코드 조회 |
-| 리팩터링 | 보안 취약점 5건 수정, 단위 테스트 작성, 설정 정리 ([#6](https://github.com/hardtack6348/travel_korea/pull/6), [#7](https://github.com/hardtack6348/travel_korea/pull/7), [#9](https://github.com/hardtack6348/travel_korea/pull/9), [#10](https://github.com/hardtack6348/travel_korea/pull/10)) |
+| 리팩터링 | 보안 취약점 5건 수정, 서버 중복 검사, 단위 테스트 작성, 설정 정리 ([#6](https://github.com/hardtack6348/travel_korea/pull/6), [#7](https://github.com/hardtack6348/travel_korea/pull/7), [#9](https://github.com/hardtack6348/travel_korea/pull/9), [#10](https://github.com/hardtack6348/travel_korea/pull/10), [#12](https://github.com/hardtack6348/travel_korea/pull/12)) |
 
 팀원 담당: TourAPI 연동 클라이언트와 여행지·상세 페이지, 여행 피드(SNS), S3 이미지 업로드, 여행지 북마크
 
@@ -104,7 +104,7 @@ sequenceDiagram
 
 | Method | URI | 설명 | 권한 |
 | --- | --- | --- | --- |
-| POST | `/api/v1/auth/signup` | 회원가입 (이메일 인증 필요) | 전체 |
+| POST | `/api/v1/auth/signup` | 회원가입 (이메일 인증 필요, 중복이면 409) | 전체 |
 | POST | `/api/v1/auth/login` | 로그인 | 전체 |
 | POST | `/api/v1/auth/logout` | 로그아웃 | 전체 |
 | POST | `/api/v1/auth/refresh` | Access Token 재발급 | 전체 |
@@ -189,15 +189,25 @@ sequenceDiagram
 - 화면에 필요한 값만 담은 `SignupResponse(memberId, email, nickname)`로 바꾸고 201 Created 반환
 - 바꾸기 전에 프론트엔드 코드를 확인해 회원가입 응답 본문을 사용하지 않는다는 것을 확인
 
-### 5. 세션 인증에서 JWT 인증으로 전환
+### 5. 같은 이메일로 여러 번 가입할 수 있던 문제 ([#12](https://github.com/hardtack6348/travel_korea/pull/12))
+
+**문제**
+이메일·닉네임 중복 확인을 화면에서만 하고 있어, 화면을 거치지 않은 요청이면 같은 이메일로 여러 번 가입할 수 있었습니다. 프론트엔드의 이메일 중복 확인도 응답 필드를 잘못 읽어 항상 "이미 사용 중"으로 나왔고, 닉네임 중복 확인은 서버를 호출하지 않았습니다.
+
+**해결**
+- 회원가입 API에서 이메일·닉네임 중복을 다시 검사하고, 중복이면 409 Conflict 반환
+- 중복으로 실패해도 이메일 인증은 유지되어 닉네임만 바꿔 다시 가입할 수 있도록 처리
+- 프론트엔드의 중복 확인을 실제 API 응답(`available`)에 맞게 수정하고, 409를 받으면 안내 후 입력 단계로 이동 ([wayLog #8](https://github.com/hardtack6348/wayLog/pull/8))
+
+### 6. 세션 인증에서 JWT 인증으로 전환
 
 교육 과정에서는 세션 인증을 배웠지만, 이 프로젝트는 프론트엔드와 백엔드가 분리된 구조였습니다. 모바일 환경 대응과 서버를 늘렸을 때의 세션 공유 문제를 고려해, 서버가 로그인 상태를 저장하지 않는 JWT 방식으로 전환했습니다.
 
-### 6. 레포를 합치는 과정에서 DB 연결이 반복해서 실패한 문제
+### 7. 레포를 합치는 과정에서 DB 연결이 반복해서 실패한 문제
 
 프론트엔드와 백엔드 레포를 분리해 개발하다 합치는 과정에서 DB 연결이 계속 실패했습니다. env 파일과 AWS 서버 설정을 점검해 DB 접속 정보를 환경 변수(`DB_URL`, `DB_USER`, `DB_PW`)로 분리하고 연결을 안정화했습니다.
 
-### 7. TourAPI 일일 호출 제한 대응
+### 8. TourAPI 일일 호출 제한 대응
 
 TourAPI 개발 계정은 하루 1,000회까지만 호출할 수 있어, 요청마다 API를 호출하면 개발 중에도 한도를 쉽게 넘길 수 있었습니다. 같은 조건의 조회 결과를 Caffeine 캐시에 1시간 동안 저장해 같은 요청이 반복될 때 API를 다시 호출하지 않도록 했습니다. 시·도, 시·군·구 지역 코드와 관광 분류코드처럼 거의 바뀌지 않는 데이터는 JSON 파일로 서버에 두고 읽어 오도록 했습니다.
 
