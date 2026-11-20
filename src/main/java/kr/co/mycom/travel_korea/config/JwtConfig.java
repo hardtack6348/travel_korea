@@ -21,7 +21,6 @@ public class JwtConfig {
     private final JWSVerifier verifier;
 
     public record TokenResponse(String accessToken, String refreshToken) {}
-    public record RefreshTokenValidationResult(String email, boolean isExpired) {}
 
     public JwtConfig(
             @Value("${jwt.secret}") String secret,
@@ -63,25 +62,21 @@ public class JwtConfig {
         return claims.getSubject();
     }
 
-    // 4. Refresh Token 검증후 email 추출 (만료 시 예외 처리)
+    // 4. Refresh Token 검증 후 email 추출
+    // 서명, 타입, 만료를 모두 통과해야 email을 반환한다. 만료된 토큰은 재발급 근거가 될 수 없으므로 예외를 던진다.
     public String validateRefreshToken(String token) throws Exception {
-        RefreshTokenValidationResult result = validateRefreshTokenWithExpirationCheck(token);
-        if (result.isExpired()) {
-            throw new IllegalArgumentException("만료된 Refresh Token입니다. 다시 로그인하세요.");
-        }
-        return result.email();
-    }
-
-    // 5. Refresh Token 검증 (만료 여부 함께 반환)
-    public RefreshTokenValidationResult validateRefreshTokenWithExpirationCheck(String token) throws Exception {
         JWTClaimsSet claims = parseAndVerifyToken(token);
 
         if (!"REFRESH".equals(claims.getStringClaim("type"))) {
             throw new IllegalArgumentException("올바른 Refresh Token 타입이 아닙니다.");
         }
 
-        boolean isExpired = claims.getExpirationTime().before(new Date());
-        return new RefreshTokenValidationResult(claims.getSubject(), isExpired);
+        Date expirationTime = claims.getExpirationTime();
+        if (expirationTime == null || expirationTime.before(new Date())) {
+            throw new IllegalArgumentException("만료된 Refresh Token입니다. 다시 로그인하세요.");
+        }
+
+        return claims.getSubject();
     }
 
     // 6. Refresh Token 쿠키 생성
