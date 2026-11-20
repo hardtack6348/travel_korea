@@ -95,40 +95,41 @@ public class AuthService {
     }
 
     public ResponseEntity<?> refreshToken(String refreshTokenCookie) {
-    // 엑세스 토큰 리프레시
+        // Access Token 재발급
+        // Refresh Token이 없거나, 위조되었거나, 만료되었거나, 회원이 없으면 재발급하지 않고 401을 반환한다.
+        // 프론트엔드는 401을 받으면 다시 로그인하도록 안내한다.
+        if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
+            return unauthorized("Refresh Token이 존재하지 않습니다. 다시 로그인하세요.");
+        }
+
+        String email;
         try {
-            if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
-                throw new IllegalArgumentException("Refresh Token이 존재하지 않습니다.");
-            }
+            // 서명, 타입, 만료 검증 (만료 시 예외 발생)
+            email = jwt.validateRefreshToken(refreshTokenCookie);
+        } catch (Exception e) {
+            return unauthorized("유효하지 않거나 만료된 Refresh Token입니다. 다시 로그인하세요.");
+        }
 
-            // 서명 검증 및 만료 여부 확인
-            JwtConfig.RefreshTokenValidationResult result = jwt.validateRefreshTokenWithExpirationCheck(refreshTokenCookie);
-            String email = result.email();
+        // 토큰이 유효해도 탈퇴 등으로 회원이 없으면 재발급하지 않는다.
+        if (repo.findByEmail(email).isEmpty()) {
+            return unauthorized("회원 정보를 찾을 수 없습니다. 다시 로그인하세요.");
+        }
 
-            // 1) Refresh Token이 만료된 경우 -> 두 토큰 모두 재발급 후 쿠키 업데이트
-            if (result.isExpired()) {
-                JwtConfig.TokenResponse newTokenPair = jwt.createTokenPair(email);
-                ResponseCookie newCookie = jwt.createRefreshTokenCookie(newTokenPair.refreshToken());
-
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.SET_COOKIE, newCookie.toString())
-                        .body(Map.of(
-                                "accessToken", newTokenPair.accessToken(),
-                                "message", "Refresh Token이 만료되어 전체 토큰이 재발급되었습니다."
-                        ));
-            }
-
-            // 2) Refresh Token이 만료되지 않고 유효한 경우 -> Access Token만 재발급
+        try {
             String newAccessToken = jwt.createAccessToken(email);
             return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
-
-        } catch (Exception e) {
-            // 서명이 조작되었거나 올바르지 않은 타입일 경우 쿠키 삭제 후 에러 반환
-            ResponseCookie deleteCookie = jwt.deleteToken();
-            return ResponseEntity.badRequest()
-                    .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
-                    .body(Map.of("error", e.getMessage()));
+        } catch (JOSEException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "토큰 발급 중 오류가 발생했습니다."));
         }
+    }
+
+    // 재발급 실패 시 Refresh Token 쿠키를 삭제하고 401을 반환한다.
+    private ResponseEntity<Map<String, String>> unauthorized(String message) {
+        ResponseCookie deleteCookie = jwt.deleteToken();
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                .body(Map.of("message", message));
     }
 
     private void createEmailForm(String toEmail,
