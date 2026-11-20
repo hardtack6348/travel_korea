@@ -75,7 +75,7 @@ server:
       max-request-size: 30MB
   port: ${SERVER_PORT}
 jwt:
-  secret: QfvEunKI05ZNTFi11wTvArkScyZF1r8/vHxs7Tj8xxI=
+  secret: ${JWT_SECRET}
   access-expiration: 1800000       # 30분 (1000 * 60 * 30)
   refresh-expiration: 604800000    # 7일 (1000 * 60 * 60 * 24 * 7)
 #tour-api-key: ${TOUR_API}
